@@ -18,9 +18,6 @@
 #endif
 
 #include <SDL.h> //for SDL_GetTicks
-#ifdef __APPLE__
-#include "CoreFoundation/CoreFoundation.h"
-#endif
 
 #if defined SCREENSAVER
 enum screensaverParameter { NONE, CONFIGURATION, PREVIEW, FULLSCREEN };
@@ -83,21 +80,6 @@ int main(int argc, char *argv[])
 {
 	srand(time(NULL));
 
-#if defined __APPLE__
-	{
-		CFBundleRef mainBundle = CFBundleGetMainBundle();
-		CFURLRef resourcesURL = CFBundleCopyResourcesDirectoryURL(mainBundle);
-		char path[PATH_MAX];
-		if (!CFURLGetFileSystemRepresentation(resourcesURL, TRUE, (UInt8 *)path, PATH_MAX))
-		{
-			printf("cannot change working directory, check permissions\n");
-			exit(0);
-		}
-		CFRelease(resourcesURL);
-
-		chdir(path);
-	}
-#endif
 #if defined _WIN32
 	{
 		TCHAR dest[ MAX_PATH ];

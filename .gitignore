@@ -69,3 +69,4 @@ xcuserdata/
 *.moved-aside
 *.xccheckout
 *.xcscmblueprint
+/.vs

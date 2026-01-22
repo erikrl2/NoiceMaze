@@ -1,0 +1,27 @@
+{
+  "version": 3,
+  "configurePresets": [
+	{
+	  "name": "base",
+	  "hidden": true,
+	  "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+	},
+	{
+	  "name": "vs",
+	  "inherits": "base",
+	  "generator": "Visual Studio 18 2026",
+	  "binaryDir": "${sourceDir}/build/vs",
+	  "condition": {
+		"type": "equals",
+		"lhs": "${hostSystemName}",
+		"rhs": "Windows"
+	  }
+	},
+	{
+	  "name": "ninja",
+	  "inherits": "base",
+	  "generator": "Ninja Multi-Config",
+	  "binaryDir": "${sourceDir}/build/ninja"
+	}
+  ]
+}
