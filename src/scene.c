@@ -19,10 +19,9 @@ static Maze *maze;
 static Mesh *maze_mesh, *plane, *pyramid;
 static Walker *walker;
 static Texture wall_texture, ceiling_texture, floor_texture;
-static Program textured_program, twister_program, floor_reflect_program;
-static Rendertarget reflection_target;
+static Program textured_program, twister_program;
+//static Rendertarget reflection_target;
 
-static char reflection_enabled;
 static char postprocess_enabled;
 
 #define WALL_GROW_TIME 2.0
@@ -38,7 +37,6 @@ static enum GameState game_state;
 enum RenderPass
 {
 	PASS_FINAL,
-	PASS_REFLECTION
 };
 
 static void parse_pp_pipeline_config();
@@ -55,24 +53,16 @@ static void draw_twisters(enum RenderPass pass);
 
 void scene_init()
 {
-	reflection_enabled = config_get_value_integer("reflection", 1);
 	postprocess_enabled = config_get_value_integer("postprocess", 1);
-	if(config_get_value_integer("sidebyside", 0) && !postprocess_enabled) drawer_set_3d_mode(DRAWER_3D_SIDEBYSIDE);
 	
 	wall_texture = drawer_load_texture("wall.jpg");
 	ceiling_texture = drawer_load_texture("ceiling.jpg");
 	floor_texture = drawer_load_texture("floor.jpg");
 	
-	textured_program = drawer_create_program("textured.glslv", "textured.glslf");
-	twister_program = drawer_create_program("twister.glslv", "twister.glslf");
+	textured_program = drawer_create_program("textured.vert.glsl", "textured.frag.glsl");
+	twister_program = drawer_create_program("twister.vert.glsl", "twister.frag.glsl");
 	
 	if(postprocess_enabled) parse_pp_pipeline_config();
-	
-	if(reflection_enabled)
-	{
-		floor_reflect_program = drawer_create_program("textured.glslv", "floor_reflect.glslf");
-		reflection_target = drawer_create_rendertarget();
-	}
 	
 	pyramid = mesh_create_pyramid(0.2);
 	
@@ -182,11 +172,6 @@ static void new_game()
 
 static void draw_scene()
 {	
-	if(reflection_enabled)
-	{
-		drawer_use_rendertarget(reflection_target, 1);
-		draw_models(PASS_REFLECTION);
-	}
 	drawer_use_rendertarget(postprocess_enabled ? DRAWER_PP_RENDERTARGET : DRAWER_WINDOW_RENDERTARGET, drawer_get_3d_mode()==DRAWER_3D_OFF ? 1 : 0);
 	draw_models(PASS_FINAL);
 	if(postprocess_enabled) drawer_do_postprocess();
@@ -196,14 +181,10 @@ static void draw_models(enum RenderPass pass)
 {
 	float mv[16];
 	camera_get_matrix(mv);
-	if(pass == PASS_REFLECTION) scale_m4(mv, 1.0, -1.0, 1.0);
 	drawer_modelview_set(mv);
 	
-	if(pass != PASS_REFLECTION)
-	{
-		draw_floor(pass);
-		drawer_modelview_set(mv);
-	}
+    draw_floor(pass);
+    drawer_modelview_set(mv);
 	
 	draw_ceiling(pass);
 	drawer_modelview_set(mv);
@@ -229,12 +210,7 @@ static void draw_ceiling(enum RenderPass pass)
 
 static void draw_floor(enum RenderPass pass)
 {
-	if(pass == PASS_FINAL && reflection_enabled)
-	{
-		drawer_use_program(floor_reflect_program);
-		drawer_use_rendertarget_texture(reflection_target, 1, "Reflection");
-	}
-	else drawer_use_program(textured_program);
+	drawer_use_program(textured_program);
 	drawer_use_texture(floor_texture, 0, "Diffuse");
 	drawer_draw_mesh(plane);
 }

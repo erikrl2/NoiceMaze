@@ -37,7 +37,7 @@ static enum screensaverParameter get_screensaver_parameter(int argc, const char 
 				case 'p':
 					return PREVIEW; // Preview in Settings screen
 				case 's':
-					return FULLSCREEN; // When user clicks Preview button in Settings screen
+					return FULLSCREEN; // When user clicks Preview button in Settings screen 
 			}
 		}
 	}

@@ -3,17 +3,19 @@
  * file 'LICENSE', which is part of this source code package.
  */
 
-#version 120
+#version 430 core
 
 uniform sampler2D Diffuse;
 
-varying vec3 position;
-varying vec2 texcoord;
+in vec3 position;
+in vec2 texcoord;
+
+out vec4 fragColor;
 
 void main()
 {
-	vec3 tex_color = texture2D(Diffuse, texcoord).rgb;
+	vec3 tex_color = texture(Diffuse, texcoord).rgb;
 	float x = length(position);
 	float intensity = 1.0/(1.1+3.0*x*x) + 0.1;
-	gl_FragColor = vec4(tex_color*intensity, 1.0);
+	fragColor = vec4(tex_color*intensity, 1.0);
 }

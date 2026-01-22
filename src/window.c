@@ -35,6 +35,14 @@ void window_init()
 	if(fullscreen) flags |= SDL_WINDOW_FULLSCREEN;
 #endif
 
+	/* Request OpenGL 4.3 Core profile */
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+#if defined(_DEBUG)
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG);
+#endif
+
 	window = SDL_CreateWindow("GLMaze",
 		SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
 		screen_size[0], screen_size[1], flags);

@@ -63,9 +63,6 @@ void drawer_init()
 
 	drawer_print_glinfo();
 
-	if(GLEW_ARB_vertex_buffer_object) mesh_generate_vbos(1);
-	else mesh_generate_vbos(0);
-
 	glClearColor(0.0, 0.0, 0.0, 0.0);
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_BLEND);
@@ -82,8 +79,8 @@ void drawer_init()
 	noise_texture = generate_noise_texture();
 	glActiveTexture(GL_TEXTURE0);
 
-	pp_vertex_shader = create_shader(GL_VERTEX_SHADER, "pp.glslv");
-	pp_fragment_shader = create_shader(GL_FRAGMENT_SHADER, "pp.glslf");
+	pp_vertex_shader = create_shader(GL_VERTEX_SHADER, "pp.vert.glsl");
+	pp_fragment_shader = create_shader(GL_FRAGMENT_SHADER, "pp.frag.glsl");
 	pp_program = create_program(pp_vertex_shader, pp_fragment_shader);
 
 	screen_square_mesh = mesh_create_screen_square();
@@ -168,7 +165,7 @@ void drawer_use_rendertarget_texture(Rendertarget target, unsigned int texture_u
 	glGetFramebufferAttachmentParameteriv(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME, (GLint*)&texture);
 
 	glActiveTexture(GL_TEXTURE0+texture_unit);
-	glBindTexture(GL_TEXTURE_RECTANGLE, texture);
+	glBindTexture(GL_TEXTURE_2D, texture);
 	if(uniform_exists(uniform_name, &location)) glUniform1i(location, texture_unit);
 }
 
@@ -180,9 +177,11 @@ Rendertarget drawer_create_rendertarget()
 	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, target);
 
 	glGenTextures(1, &image);
-	glBindTexture(GL_TEXTURE_RECTANGLE, image);
-	glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_RGB, screen_size[0], screen_size[1], 0, GL_RGB, GL_FLOAT, NULL);
-	glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_RECTANGLE, image, 0);
+	glBindTexture(GL_TEXTURE_2D, image);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, screen_size[0], screen_size[1], 0, GL_RGB, GL_FLOAT, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, image, 0);
 
 	glGenRenderbuffers(1, &depth);
 	glBindRenderbuffer(GL_RENDERBUFFER, depth);
@@ -205,79 +204,14 @@ void drawer_depth_mask(unsigned char mask)
 	glDepthMask(mask);
 }
 
-void drawer_draw_mesh(Mesh *mesh)
+void drawer_draw_mesh(Mesh* mesh)
 {
-	GLsizei stride = 0;
-	int position_offset=0, normal_offset=0, texcoord_offset=0;
-	if(mesh->vertex_format & VERTEX_POSITION)
+	if (mesh->vbo)
 	{
-		position_offset = stride;
-		stride += 3;
+		MeshVBO* vbo = mesh->vbo;
+		glBindVertexArray(vbo->vao);
+		glDrawElements(GL_TRIANGLES, mesh->indices_count, GL_UNSIGNED_INT, NULL);
 	}
-	if(mesh->vertex_format & VERTEX_NORMAL)
-	{
-		normal_offset = stride;
-		stride += 3;
-	}
-	if(mesh->vertex_format & VERTEX_TEXCOORD)
-	{
-		texcoord_offset = stride;
-		stride += 2;
-	}
-	stride *= sizeof(GLfloat);
-
-	GLfloat *position_pointer, *normal_pointer, *texcoord_pointer;
-	GLuint *element_pointer;
-
-	if(mesh->vbo)
-	{
-		MeshVBO *vbo = mesh->vbo;
-		glBindBuffer(GL_ARRAY_BUFFER, vbo->vertex_buffer);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo->index_buffer);
-		vbo_bound = 1;
-		position_pointer = ((GLfloat*)NULL)+position_offset;
-		normal_pointer = ((GLfloat*)NULL)+normal_offset;
-		texcoord_pointer = ((GLfloat*)NULL)+texcoord_offset;
-		element_pointer = ((GLuint*)NULL);
-	}
-	else
-	{
-		if(vbo_bound)
-		{
-			glBindBuffer(GL_ARRAY_BUFFER, 0);
-			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-			vbo_bound = 0;
-		}
-		MeshData *data = mesh->data;
-		position_pointer = data->vertices+position_offset;
-		normal_pointer = data->vertices+normal_offset;
-		texcoord_pointer = data->vertices+texcoord_offset;
-		element_pointer = data->indices;
-	}
-
-	GLint location;
-	if(mesh->vertex_format & VERTEX_POSITION)
-	{
-		location = glGetAttribLocation(current_program, "in_position");
-		glVertexAttribPointer(location, 3, GL_FLOAT, GL_FALSE, stride, position_pointer);
-		glEnableVertexAttribArray(location);
-	}
-
-	if(mesh->vertex_format & VERTEX_NORMAL)
-	{
-		location = glGetAttribLocation(current_program, "in_normal");
-		glVertexAttribPointer(location, 3, GL_FLOAT, GL_FALSE, stride, normal_pointer);
-		glEnableVertexAttribArray(location);
-	}
-
-	if(mesh->vertex_format & VERTEX_TEXCOORD)
-	{
-		location = glGetAttribLocation(current_program, "in_texcoord");
-		glVertexAttribPointer(location, 2, GL_FLOAT, GL_FALSE, stride, texcoord_pointer);
-		glEnableVertexAttribArray(location);
-	}
-
-	glDrawElements(GL_TRIANGLES, mesh->indices_count, GL_UNSIGNED_INT, element_pointer);
 }
 
 void drawer_postprocess_pass_add(char *filename, SDL_Keycode toggle_key)
@@ -348,17 +282,14 @@ void drawer_end_scene()
 
 void drawer_3d_reset()
 {
-	if(render_3d_mode == DRAWER_3D_SIDEBYSIDE) set_viewport(0, 0, screen_size[0], screen_size[1]);
 }
 
 void drawer_3d_left()
 {
-	if(render_3d_mode == DRAWER_3D_SIDEBYSIDE) set_viewport(0, 0, screen_size[0]/2, screen_size[1]);
 }
 
 void drawer_3d_right()
 {
-	if(render_3d_mode == DRAWER_3D_SIDEBYSIDE) set_viewport(screen_size[0]/2, 0, screen_size[0]/2, screen_size[1]);
 }
 
 void drawer_set_3d_mode(enum Drawer3DMode mode)
@@ -371,9 +302,12 @@ enum Drawer3DMode drawer_get_3d_mode()
 	return render_3d_mode;
 }
 
-void drawer_create_mesh_vbo(Mesh *mesh)
+void drawer_create_mesh_vbo(Mesh* mesh)
 {
-	MeshVBO *vbo = malloc(sizeof(MeshVBO));
+	MeshVBO* vbo = malloc(sizeof(MeshVBO));
+
+	glGenVertexArrays(1, &vbo->vao);
+	glBindVertexArray(vbo->vao);
 
 	glGenBuffers(1, &vbo->vertex_buffer);
 	glBindBuffer(GL_ARRAY_BUFFER, vbo->vertex_buffer);
@@ -383,8 +317,46 @@ void drawer_create_mesh_vbo(Mesh *mesh)
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo->index_buffer);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * mesh->indices_count, mesh->data->indices, GL_STATIC_DRAW);
 
+	// Set up vertex attributes while VAO is bound
+	GLsizei stride = 0;
+	int position_offset = 0, normal_offset = 0, texcoord_offset = 0;
+	if (mesh->vertex_format & VERTEX_POSITION)
+	{
+		position_offset = stride;
+		stride += 3;
+	}
+	if (mesh->vertex_format & VERTEX_NORMAL)
+	{
+		normal_offset = stride;
+		stride += 3;
+	}
+	if (mesh->vertex_format & VERTEX_TEXCOORD)
+	{
+		texcoord_offset = stride;
+		stride += 2;
+	}
+	stride *= sizeof(GLfloat);
+
+	if (mesh->vertex_format & VERTEX_POSITION)
+	{
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (GLvoid*)(intptr_t)(position_offset * sizeof(GLfloat)));
+	}
+
+	if (mesh->vertex_format & VERTEX_NORMAL)
+	{
+		glEnableVertexAttribArray(1);
+		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (GLvoid*)(intptr_t)(normal_offset * sizeof(GLfloat)));
+	}
+
+	if (mesh->vertex_format & VERTEX_TEXCOORD)
+	{
+		glEnableVertexAttribArray(2);
+		glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (GLvoid*)(intptr_t)(texcoord_offset * sizeof(GLfloat)));
+	}
+
+	glBindVertexArray(0);
 	mesh->vbo = vbo;
-	vbo_bound = 1;
 }
 
 void drawer_free_mesh_vbo(MeshVBO *vbo)
@@ -442,8 +414,6 @@ void drawer_print_glinfo()
 {
 	printf("OpenGL Version: %s\n", glGetString(GL_VERSION));
 	printf("GLSL Version: %s\n", glGetString(GL_SHADING_LANGUAGE_VERSION));
-	if(GLEW_ARB_vertex_buffer_object) printf("VBOs are supported. Yeah!\n");
-	else printf("VBOs are not supported.\n");
 }
 
 void drawer_write_glinfo()
@@ -462,6 +432,12 @@ static GLuint create_shader(GLenum type, char *filename)
 {
 	GLuint shader = glCreateShader(type);
 	GLchar *shader_source = file_text(file_resource(filename, RESOURCE_SHADER));
+	if (shader_source == NULL)
+	{
+		printf("Failed to load shader file: %s\n", filename);
+		glDeleteShader(shader);
+		return 0;
+	}
 	glShaderSource(shader, 1, (const GLchar**)&shader_source, NULL);
 	free(shader_source);
 

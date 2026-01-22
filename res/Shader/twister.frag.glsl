@@ -3,12 +3,13 @@
  * file 'LICENSE', which is part of this source code package.
  */
 
-#version 120
-#extension GL_ARB_texture_rectangle : require
+#version 430 core
 
-uniform sampler2DRect Image;
+out vec4 fragColor;
 
 void main()
 {
-	gl_FragColor = texture2DRect(Image, gl_FragCoord.xy);
+	if(!gl_FrontFacing) discard;
+	//fragColor = vec4(vec3(1.0), 0.7);
+	fragColor = vec4(1.0);
 }

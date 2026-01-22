@@ -6,7 +6,6 @@ res_width=1280
 res_height=800
 fullscreen=0
 
-reflection=1
 postprocess=1
 
 # This defines the postprocess-pipeline
@@ -14,8 +13,4 @@ postprocess=1
 # Each shader must have a hotkey and the last hotkey must not end with a ';'. GLMaze currently does no syntax error checks!
 # Shader are loaded from the 'Shader' subdirectory.
 # Up to 16 shaders at once are supported.
-pp_pipeline=pp_radialblur.glslf;b;pp_nightvision.glslf;n
-
-# To enble side-by-side 3d, postprocess must be disabled (postprocess=0)
-# Otherwise GLMaze simply skips the sidebyside option.
-sidebyside=0
+pp_pipeline=pp_radialblur.frag.glsl;b;pp_nightvision.frag.glsl;n

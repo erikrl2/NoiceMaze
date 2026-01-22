@@ -33,10 +33,8 @@ endif()
 project(${PROJECT_TARGETBIN} C)
 
 # Add all source and header files
-file(GLOB SRC
-    "src/*.h"
-    "src/*.c"
-)
+file(GLOB SRC "src/*.h" "src/*.c")
+file(GLOB_RECURSE RESOURCES "res/*")
 
 # Locate required libraries
 Find_Package ( OpenGL REQUIRED )
@@ -57,25 +55,10 @@ link_libraries (
 if(WIN32)
   link_libraries(SDL2::SDL2main)
 
-  # Hide console on Windows
-  SET(GUI_TYPE WIN32)
+  # Hide console on Windows on release builds
+  add_link_options($<$<NOT:$<CONFIG:Debug>>:/SUBSYSTEM:WINDOWS>)
 
   add_definitions(/D _CRT_SECURE_NO_WARNINGS)
-
-  set(PRODUCT_ICON ${PROJECT_SOURCE_DIR}/Win/glmaze.ico)
-
-  set (_VersionInfoFile ${CMAKE_CURRENT_BINARY_DIR}/VersionInfo.h)
-  set (_VersionResourceFile ${CMAKE_CURRENT_BINARY_DIR}/VersionResource.rc)
-
-  configure_file(
-        ${PROJECT_SOURCE_DIR}/Win/VersionInfo.in
-        ${_VersionInfoFile}
-        @ONLY)
-  configure_file(
-      ${PROJECT_SOURCE_DIR}/Win/VersionResource.rc
-      ${_VersionResourceFile}
-      COPYONLY)
-  list(APPEND SRC ${SRC} ${_VersionInfoFile} ${_VersionResourceFile})
 
   set(WIN_DLLS $<TARGET_FILE:GLEW::GLEW> $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE:freeimage::FreeImage>)
 ENDIF(WIN32)
@@ -85,9 +68,9 @@ if(UNIX AND NOT APPLE)
 endif()
 
 # Create Executable
-add_executable(${PROJECT_TARGETBIN} ${GUI_TYPE} ${SRC} ${RESOURCES} ${FRAMEWORKS})
+add_executable(${PROJECT_TARGETBIN} ${SRC} ${RESOURCES})
 if(WIN32)
-  add_executable(${PROJECT_TARGETBIN}_Screensaver ${GUI_TYPE} ${SRC} ${RESOURCES} ${FRAMEWORKS})
+  add_executable(${PROJECT_TARGETBIN}_Screensaver ${SRC} ${RESOURCES})
   target_compile_definitions(${PROJECT_TARGETBIN}_Screensaver PRIVATE SCREENSAVER=1)
   set_target_properties(${PROJECT_TARGETBIN}_Screensaver PROPERTIES OUTPUT_NAME "GLMaze")
   set_target_properties(${PROJECT_TARGETBIN}_Screensaver PROPERTIES SUFFIX ".scr")
@@ -108,3 +91,8 @@ if(WIN32)
  	add_custom_command(TARGET ${PROJECT_TARGETBIN} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different ${DLL} $<TARGET_FILE_DIR:${PROJECT_TARGETBIN}>)
  endforeach(DLL)
 endif(WIN32)
+
+# Visual Studio specific settings
+set_property(DIRECTORY PROPERTY VS_STARTUP_PROJECT Noice)
+source_group(TREE "${PROJECT_SOURCE_DIR}/src" PREFIX "Source" FILES ${SRC})
+source_group(TREE "${PROJECT_SOURCE_DIR}/res" PREFIX "Resources" FILES ${RESOURCES})

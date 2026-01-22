@@ -3,9 +3,9 @@
  * file 'LICENSE', which is part of this source code package.
  */
 
-#version 120
+#version 430 core
 
-attribute vec3 in_position;
+layout (location = 0) in vec3 in_position;
 
 void main()
 {

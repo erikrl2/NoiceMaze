@@ -10,8 +10,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-static char generate_vbo = 0;
-
 #define MAZE_Y0_OFFSET -0.2
 
 static Mesh* allocate_mesh();
@@ -78,7 +76,7 @@ Mesh* mesh_create_maze(Maze *maze)
 		*i++ = origin + (maze->height+1) * (maze->width+1);
 	}
 	
-	if(generate_vbo) drawer_create_mesh_vbo(mesh);
+	drawer_create_mesh_vbo(mesh);
 	
 	return mesh;
 }
@@ -110,7 +108,7 @@ Mesh* mesh_create_quad(float x_scale, float z_scale)
 	*i++ = 0; *i++ = 1; *i++ = 2;
 	*i++ = 1; *i++ = 3; *i++ = 2;
 	
-	if(generate_vbo) drawer_create_mesh_vbo(mesh);
+	drawer_create_mesh_vbo(mesh);
 	
 	return mesh;
 }
@@ -143,7 +141,7 @@ Mesh* mesh_create_pyramid(float scale)
 	*i++ = 1; *i++ = 2; *i++ = 3;
 	*i++ = 0; *i++ = 2; *i++ = 1;
 	
-	if(generate_vbo) drawer_create_mesh_vbo(mesh);
+	drawer_create_mesh_vbo(mesh);
 	
 	return mesh;
 }
@@ -168,7 +166,7 @@ Mesh* mesh_create_screen_square()
 	*i++ = 0; *i++ = 1; *i++ = 2;
 	*i++ = 0; *i++ = 2; *i++ = 3;
 	
-	if(generate_vbo) drawer_create_mesh_vbo(mesh);
+	drawer_create_mesh_vbo(mesh);
 	
 	return mesh;
 }
@@ -180,11 +178,6 @@ int mesh_get_vertex_size(unsigned int vertex_format)
 	if(vertex_format & VERTEX_NORMAL) size += 3;
 	if(vertex_format & VERTEX_TEXCOORD) size += 2;
 	return size;
-}
-
-void mesh_generate_vbos(char value)
-{
-	generate_vbo = value;
 }
 
 void mesh_free_data(MeshData *data)

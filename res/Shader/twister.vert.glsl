@@ -3,10 +3,13 @@
  * file 'LICENSE', which is part of this source code package.
  */
 
-#version 120
+#version 430 core
+
+uniform mat4 MVPMatrix;
+
+layout (location = 0) in vec3 in_position;
 
 void main()
 {
-	if(!gl_FrontFacing) discard;
-	gl_FragColor = vec4(vec3(1.0), 0.7);
+	gl_Position = MVPMatrix * vec4(in_position, 1.0);
 }
