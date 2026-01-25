@@ -1,0 +1,72 @@
+#pragma once
+#include "image.hpp"
+#include "shader.hpp"
+
+#include <span>
+
+struct EffectInputData {
+  Texture currIdTex;
+
+  bool reproject = false;
+  Texture prevIdTex;
+  Texture prevDepthTex;
+  glm::mat4* prevCurrProj = nullptr;
+  glm::mat4* prevCurrView = nullptr;
+  std::span<glm::mat4[2]> modelMats;
+  int currInd = 0;
+
+  bool flow = true;
+  Texture prevFlowTex;
+};
+
+class Effect {
+public:
+  float scrollSpeedFactor = 7.0f;
+  int accResetInterval = 0;
+  int downscaleFactor = 1; // TODO: fix
+  bool paused = false;
+  bool showAcc = false;
+
+public:
+  Effect() { self = this; }
+
+  void Init(int width, int height);
+  void Destroy();
+
+  Texture Apply(const EffectInputData& in, float dt);
+
+  void ClearBuffers();
+  void ClearAcc();
+
+  void OnResize(int width, int height);
+
+  int GetWidth() const { return scaledWidth; }
+  int GetHeight() const { return scaledHeight; }
+
+  static Effect* Get() { return self; }
+
+private:
+  void ScatterPass(const EffectInputData& in, float dt);
+  void FillPass(const EffectInputData& in);
+
+private:
+  int scaledWidth = 0, scaledHeight = 0;
+
+  struct EffectImage {
+    Image noise;
+    Image acc;
+  };
+
+  EffectImage effectImgs[2];
+  int curr = 0, prev = 1;
+
+  Image claimImg;
+
+  Shader scrollShader;
+  Shader fillShader;
+
+  StorageBuffer modelSSB;
+
+private:
+  inline static Effect* self = nullptr;
+};

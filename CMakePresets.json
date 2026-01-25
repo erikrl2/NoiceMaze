@@ -4,13 +4,19 @@
 	{
 	  "name": "base",
 	  "hidden": true,
-	  "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+	  "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+	  "cacheVariables": {
+		"VCPKG_INSTALLED_DIR": "${sourceDir}/.vcpkg_installed"
+	  }
 	},
 	{
 	  "name": "vs",
 	  "inherits": "base",
 	  "generator": "Visual Studio 18 2026",
 	  "binaryDir": "${sourceDir}/build/vs",
+	  "cacheVariables": {
+		"VCPKG_TARGET_TRIPLET": "x64-windows-static"
+	  },
 	  "condition": {
 		"type": "equals",
 		"lhs": "${hostSystemName}",

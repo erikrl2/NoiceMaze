@@ -70,3 +70,4 @@ xcuserdata/
 *.xccheckout
 *.xcscmblueprint
 /.vs
+/.vcpkg_installed

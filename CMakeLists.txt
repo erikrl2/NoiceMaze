@@ -1,98 +1,66 @@
-cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.16 FATAL_ERROR)
+project(NoiceMaze LANGUAGES C CXX)
 
-# Print toolchain file to check if visual studio overwrites VCPKG_ROOT (rename/delete .vcpkg-root to fix)
-message(STATUS "CMAKE_TOOLCHAIN_FILE = ${CMAKE_TOOLCHAIN_FILE}")
+find_package(OpenGL REQUIRED)
+find_package(SDL2 CONFIG REQUIRED)
+find_package(GLEW CONFIG REQUIRED)
+find_package(FreeImage CONFIG REQUIRED)
+find_package(GLM CONFIG REQUIRED)
 
-# Include more modules, like Find for the FreeImage library
-SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/CMakeModules")
+file(GLOB GLMaze_SRC CONFIGURE_DEPENDS
+  "${PROJECT_SOURCE_DIR}/src/*.h"
+  "${PROJECT_SOURCE_DIR}/src/*.c"
+)
+file(GLOB Noice_SRC CONFIGURE_DEPENDS
+  "${PROJECT_SOURCE_DIR}/src/Noice/*.hpp"
+  "${PROJECT_SOURCE_DIR}/src/Noice/*.h"
+  "${PROJECT_SOURCE_DIR}/src/Noice/*.cpp"
+  "${PROJECT_SOURCE_DIR}/src/Noice/*.c"
+)
+file(GLOB GLMaze_SHADER CONFIGURE_DEPENDS
+  "${PROJECT_SOURCE_DIR}/res/Shader/*.glsl"
+)
+file(GLOB Noice_SHADER CONFIGURE_DEPENDS
+  "${PROJECT_SOURCE_DIR}/res/Shader/Noice/*.glsl"
+)
 
-# Binary name
-set(PROJECT_TARGETBIN "GLMaze")
-# Human-readable project name
-set(PROJECT_NAME "GLMaze")
-set(PROJECT_DESCRIPTION "GLMaze is a Windows 95 Maze screensaver clone.")
-# Identifier of project
-set(PROJECT_IDENTIFIER "tech.ulti.glmaze")
-# Versioning format: http://semver.org
-set(PROJECT_MAJOR_VERSION 1)
-set(PROJECT_MINOR_VERSION 0)
-set(PROJECT_PATCH_VERSION 0)
-set(PROJECT_COMPANY "ultitech")
-string(TIMESTAMP YEAR "%Y")
-set(PROJECT_COPYRIGHT "Copyright © 2006-${YEAR}, ${PROJECT_COMPANY}. All rights reserved.")
+add_library(Noice STATIC ${Noice_SRC})
+target_link_libraries(Noice PRIVATE OpenGL::GL GLEW::GLEW glm::glm)
+target_compile_features(Noice PRIVATE cxx_std_20)
 
-find_package(Git)
-if(GIT_FOUND)
-    execute_process(
-            COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD
-            OUTPUT_VARIABLE PROJECT_REVISION
-            OUTPUT_STRIP_TRAILING_WHITESPACE)
-endif()
-
-# Define project name and language
-project(${PROJECT_TARGETBIN} C)
-
-# Add all source and header files
-file(GLOB SRC "src/*.h" "src/*.c")
-file(GLOB_RECURSE RESOURCES "res/*")
-
-# Locate required libraries
-Find_Package ( OpenGL REQUIRED )
-Find_Package ( SDL2 CONFIG REQUIRED )
-Find_Package ( GLEW CONFIG REQUIRED )
-
-#Find_Package ( ZLIB REQUIRED )
-Find_Package ( FreeImage CONFIG REQUIRED )
-
-# Link all libraries
-link_libraries (
+add_library(NoiceMaze_deps INTERFACE)
+target_link_libraries(NoiceMaze_deps INTERFACE
   OpenGL::GL
   SDL2::SDL2
   GLEW::GLEW
   freeimage::FreeImage
+  Noice
 )
 
 if(WIN32)
-  link_libraries(SDL2::SDL2main)
-
-  # Hide console on Windows on release builds
-  add_link_options($<$<NOT:$<CONFIG:Debug>>:/SUBSYSTEM:WINDOWS>)
-
-  add_definitions(/D _CRT_SECURE_NO_WARNINGS)
-
-  set(WIN_DLLS $<TARGET_FILE:GLEW::GLEW> $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE:freeimage::FreeImage>)
-ENDIF(WIN32)
-
-if(UNIX AND NOT APPLE)
-  link_libraries(-lm)
+  target_link_libraries(NoiceMaze_deps INTERFACE SDL2::SDL2main)
+  target_compile_definitions(NoiceMaze_deps INTERFACE _CRT_SECURE_NO_WARNINGS)
+  target_link_options(NoiceMaze_deps INTERFACE $<$<NOT:$<CONFIG:Debug>>:/SUBSYSTEM:WINDOWS>)
 endif()
 
-# Create Executable
-add_executable(${PROJECT_TARGETBIN} ${SRC} ${RESOURCES})
-if(WIN32)
-  add_executable(${PROJECT_TARGETBIN}_Screensaver ${SRC} ${RESOURCES})
-  target_compile_definitions(${PROJECT_TARGETBIN}_Screensaver PRIVATE SCREENSAVER=1)
-  set_target_properties(${PROJECT_TARGETBIN}_Screensaver PROPERTIES OUTPUT_NAME "GLMaze")
-  set_target_properties(${PROJECT_TARGETBIN}_Screensaver PROPERTIES SUFFIX ".scr")
-endif(WIN32)
+add_executable(NoiceMaze ${GLMaze_SRC})
+target_link_libraries(NoiceMaze PRIVATE NoiceMaze_deps)
 
-if(UNIX AND NOT APPLE)
-  set_target_properties(${PROJECT_TARGETBIN} PROPERTIES RUNTIME_OUTPUT_DIRECTORY GLMaze)
-endif(UNIX AND NOT APPLE)
-
-if(UNIX AND NOT APPLE OR WIN32)
-  add_custom_command(TARGET ${PROJECT_TARGETBIN} POST_BUILD
-                   COMMAND ${CMAKE_COMMAND} -E copy_directory
-                       ${PROJECT_SOURCE_DIR}/res $<TARGET_FILE_DIR:${PROJECT_TARGETBIN}>)
-endif(UNIX AND NOT APPLE OR WIN32)
+add_custom_command(TARGET NoiceMaze POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_directory
+          "${PROJECT_SOURCE_DIR}/res"
+          "$<TARGET_FILE_DIR:NoiceMaze>"
+)
 
 if(WIN32)
- foreach(DLL ${WIN_DLLS})
- 	add_custom_command(TARGET ${PROJECT_TARGETBIN} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different ${DLL} $<TARGET_FILE_DIR:${PROJECT_TARGETBIN}>)
- endforeach(DLL)
-endif(WIN32)
+  add_executable(NoiceMaze_Screensaver ${GLMaze_SRC})
+  target_link_libraries(NoiceMaze_Screensaver PRIVATE NoiceMaze_deps)
+  target_compile_definitions(NoiceMaze_Screensaver PRIVATE SCREENSAVER=1)
+  set_target_properties(NoiceMaze_Screensaver PROPERTIES OUTPUT_NAME "NoiceMaze" SUFFIX ".scr")
+endif()
 
-# Visual Studio specific settings
-set_property(DIRECTORY PROPERTY VS_STARTUP_PROJECT Noice)
-source_group(TREE "${PROJECT_SOURCE_DIR}/src" PREFIX "Source" FILES ${SRC})
-source_group(TREE "${PROJECT_SOURCE_DIR}/res" PREFIX "Resources" FILES ${RESOURCES})
+set_property(DIRECTORY PROPERTY VS_STARTUP_PROJECT NoiceMaze)
+source_group(TREE "${PROJECT_SOURCE_DIR}/src" PREFIX "Source" FILES ${GLMaze_SRC} ${Noice_SRC})
+target_sources(NoiceMaze PRIVATE ${GLMaze_SHADER})
+target_sources(Noice PRIVATE ${Noice_SHADER})
+source_group(TREE "${PROJECT_SOURCE_DIR}/res/Shader" PREFIX "Shader" FILES ${GLMaze_SHADER} ${Noice_SHADER})
