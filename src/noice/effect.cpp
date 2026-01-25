@@ -16,19 +16,19 @@ void Effect::Init(int width, int height) {
   scrollShader.CreateCompute("res/Shader/noice/scroll_move.comp.glsl");
   fillShader.CreateCompute("res/Shader/noice/scroll_fill.comp.glsl");
 
-  //modelSSB.Create(sizeof(glm::mat4[2]) * 8, nullptr, GL_DYNAMIC_DRAW); // or GL_STREAM_DRAW ?
+  // modelSSB.Create(sizeof(glm::mat4[2]) * 8, nullptr, GL_DYNAMIC_DRAW); // or GL_STREAM_DRAW
 
-  scaledWidth = width / downscaleFactor;
-  scaledHeight = height / downscaleFactor;
+  this->width = width;
+  this->height = height;
 
   for (auto& img : effectImgs) {
-    img.noise.Create(scaledWidth, scaledHeight, GL_RG8, GL_NEAREST);
-    img.acc.Create(scaledWidth, scaledHeight, GL_RG32F, GL_NEAREST);
+    img.noise.Create(width, height, GL_RG8, GL_NEAREST);
+    img.acc.Create(width, height, GL_RG32F, GL_NEAREST);
   }
 
-  claimImg.Create(scaledWidth, scaledHeight, GL_R32UI, GL_NEAREST);
+  claimImg.Create(width, height, GL_R32UI, GL_NEAREST);
 
-  ClearBuffers();
+  ResetBuffers();
 }
 
 void Effect::Destroy() {
@@ -69,31 +69,18 @@ void Effect::ScatterPass(const EffectInputData& in, float dt) {
   claimImg.Bind(4, GL_READ_WRITE);
 
   in.currIdTex.Bind(0);
+  in.prevIdTex.Bind(1);
 
-  (in.reproject ? in.prevIdTex : in.currIdTex).Bind(1);
+  in.prevDepthTex.Bind(2);
 
-  if (in.reproject) {
-    in.prevDepthTex.Bind(2);
+  modelSSB.Upload(in.modelMats);
+  modelSSB.Bind(0);
 
-    modelSSB.Upload(in.modelMats);
-    modelSSB.Bind(0);
+  scrollShader.SetMat4v("uViewMat", 2, in.prevCurrView);
+  scrollShader.SetMat4v("uProjMat", 2, in.prevCurrProj);
+  scrollShader.SetInt("uCurrInd", in.currInd);
 
-    scrollShader.SetMat4v("uViewMat", 2, in.prevCurrView);
-    scrollShader.SetMat4v("uProjMat", 2, in.prevCurrProj);
-    scrollShader.SetInt("uCurrInd", in.currInd);
-  }
-
-  if (in.flow) {
-    in.prevFlowTex.Bind(3);
-
-    float speed = scrollSpeedFactor * dt / downscaleFactor * (int)!paused;
-    scrollShader.SetFloat("uScrollSpeed", speed);
-  }
-
-  scrollShader.SetInt("uReproject", in.reproject);
-  scrollShader.SetInt("uFlow", in.flow);
-
-  scrollShader.DispatchCompute(scaledWidth, scaledHeight, 16);
+  scrollShader.DispatchCompute(width, height, 16);
 }
 
 void Effect::FillPass(const EffectInputData& in) {
@@ -109,29 +96,25 @@ void Effect::FillPass(const EffectInputData& in) {
 
   fillShader.SetUint("uSeed", util::RandomInt());
 
-  fillShader.DispatchCompute(scaledWidth, scaledHeight, 16);
+  fillShader.DispatchCompute(width, height, 16);
 }
 
-void Effect::ClearBuffers() {
+void Effect::ResetBuffers() {
   for (auto& img : effectImgs) {
     img.noise.Clear();
     img.acc.Clear();
   }
 }
 
-void Effect::ClearAcc() {
-  effectImgs[curr].acc.Clear();
-}
-
 void Effect::OnResize(int width, int height) {
-  scaledWidth = width / downscaleFactor;
-  scaledHeight = height / downscaleFactor;
+  this->width = width;
+  this->height = height;
 
   for (auto& img : effectImgs) {
-    img.noise.Resize(scaledWidth, scaledHeight);
-    img.acc.Resize(scaledWidth, scaledHeight);
+    img.noise.Resize(width, height);
+    img.acc.Resize(width, height);
   }
-  claimImg.Resize(scaledWidth, scaledHeight);
+  claimImg.Resize(width, height);
 
-  ClearBuffers();
+  ResetBuffers();
 }
