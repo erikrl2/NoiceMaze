@@ -7,9 +7,8 @@
 
 uniform mat4 MVPMatrix;
 
-layout (location = 0) in vec3 in_position;
+layout(location = 0) in vec3 in_position;
 
-void main()
-{
-	gl_Position = MVPMatrix * vec4(in_position, 1.0);
+void main() {
+  gl_Position = MVPMatrix * vec4(in_position, 1.0);
 }

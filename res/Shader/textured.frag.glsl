@@ -12,10 +12,9 @@ in vec2 texcoord;
 
 out vec4 fragColor;
 
-void main()
-{
-	vec3 tex_color = texture(Diffuse, texcoord).rgb;
-	float x = length(position);
-	float intensity = 1.0/(1.1+3.0*x*x) + 0.1;
-	fragColor = vec4(tex_color*intensity, 1.0);
+void main() {
+  vec3 tex_color = texture(Diffuse, texcoord).rgb;
+  float x = length(position);
+  float intensity = 1.0 / (1.1 + 3.0 * x * x) + 0.1;
+  fragColor = vec4(tex_color * intensity, 1.0);
 }

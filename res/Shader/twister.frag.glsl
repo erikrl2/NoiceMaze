@@ -7,9 +7,7 @@
 
 out vec4 fragColor;
 
-void main()
-{
-	if(!gl_FrontFacing) discard;
-	//fragColor = vec4(vec3(1.0), 0.7);
-	fragColor = vec4(1.0);
+void main() {
+  if(!gl_FrontFacing) discard;
+  fragColor = vec4(1.0);
 }

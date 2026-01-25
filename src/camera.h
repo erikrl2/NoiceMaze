@@ -12,4 +12,4 @@ void camera_set_rotation(float ang[3]);
 void camera_get_rotation(float ang[3]);
 void camera_get_matrix(float mat[16]);
 
-#endif //H_CAMERA
+#endif // H_CAMERA

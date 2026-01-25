@@ -9,25 +9,25 @@
 #include <math.h>
 
 #ifndef M_PI
-#define M_PI 3.14159265358979323846 //pi
+#define M_PI 3.14159265358979323846 // pi
 #endif
 #ifndef M_2PI
-#define M_2PI 6.28318530717958647692 //pi*2
+#define M_2PI 6.28318530717958647692 // pi*2
 #endif
 #ifndef M_4PI
-#define M_4PI 12.56637061435917295384 //pi*4
+#define M_4PI 12.56637061435917295384 // pi*4
 #endif
 #ifndef M_PI_2
-#define M_PI_2 1.57079632679489661923 //pi/2
+#define M_PI_2 1.57079632679489661923 // pi/2
 #endif
 #ifndef M_PI_4
-#define M_PI_4 0.78539816339744830962 //pi/4
+#define M_PI_4 0.78539816339744830962 // pi/4
 #endif
 #ifndef M_SQRT2
-#define M_SQRT2 1.41421356237309504880 //sqrt(2)
+#define M_SQRT2 1.41421356237309504880 // sqrt(2)
 #endif
 #ifndef M_E
-#define M_E 2.71828182845904523536 //e
+#define M_E 2.71828182845904523536 // e
 #endif
 
 #ifndef sqrtf
@@ -130,11 +130,11 @@ void cross_v3_v3v3(float r[3], const float a[3], const float b[3]);
 void interp_v2_v2v2(float r[2], const float a[2], const float b[2], float f);
 void interp_v3_v3v3(float r[3], const float a[3], const float b[3], float f);
 
-void print_v2(const char *str, const float a[2]);
-void print_v3(const char *str, const float a[3]);
+void print_v2(const char* str, const float a[2]);
+void print_v3(const char* str, const float a[3]);
 
-#define INDEX_M3(i,j) (((j)-1)*3+((i)-1))
-#define INDEX_M4(i,j) (((j)-1)*4+((i)-1))
+#define INDEX_M3(i, j) (((j) - 1) * 3 + ((i) - 1))
+#define INDEX_M4(i, j) (((j) - 1) * 4 + ((i) - 1))
 
 void copy_m3_m3(float R[9], float A[9]);
 void copy_m4_m4(float R[16], float A[16]);
@@ -174,7 +174,7 @@ void create_ortho2d_m4(float R[16], float l, float r, float b, float t);
 void create_frustum_m4(float R[16], float l, float r, float b, float t, float n, float f);
 void create_perspective_m4(float R[16], float fov, float aspect, float near, float far);
 
-void print_m3(const char *str, float A[9]);
-void print_m4(const char *str, float A[16]);
+void print_m3(const char* str, float A[9]);
+void print_m4(const char* str, float A[16]);
 
-#endif //H_MATHLIB
+#endif // H_MATHLIB

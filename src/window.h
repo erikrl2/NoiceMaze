@@ -8,7 +8,7 @@
 
 #include <SDL_keycode.h>
 
-typedef void(*KeypressHandler)(SDL_Keycode);
+typedef void (*KeypressHandler)(SDL_Keycode);
 
 void window_init();
 void window_quit();
