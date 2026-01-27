@@ -56,7 +56,7 @@ static void run() {
     scene_update(time_passed);
 
     drawer_begin_scene(time_passed);
-    scene_draw();
+    scene_draw(time_passed);
     drawer_end_scene();
 
     int end = SDL_GetTicks();
@@ -84,10 +84,7 @@ int main(int argc, char* argv[]) {
   }
 #endif
 
-  // TODO: instead of chdir, pass the path here
   file_set_resource_dir("./");
-
-  file_set_output_dir("./");
 
 #if defined SCREENSAVER
   enum screensaverParameter parameter = get_screensaver_parameter(argc, argv);

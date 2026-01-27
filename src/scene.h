@@ -9,6 +9,6 @@
 void scene_init();
 void scene_quit();
 void scene_update(float time_passed);
-void scene_draw();
+void scene_draw(float time_passed);
 
 #endif // H_SCENE

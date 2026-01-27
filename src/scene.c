@@ -10,6 +10,7 @@
 #include "MathLib.h"
 #include "mesh.h"
 #include "walker.h"
+#include "window.h"
 
 #include <stdlib.h>
 
@@ -23,19 +24,20 @@ static Program textured_program, twister_program;
 
 #define WALL_GROW_TIME 2.0
 
-enum GameState { GAME_STARTING, GAME_RUNNING, GAME_ENDING };
+enum GameState { GAME_STARTING, GAME_RUNNING, GAME_PAUSED, GAME_ENDING };
 static enum GameState game_state;
 
 static void camera_update_pos(float pos[3]);
 static void finish();
 static void clean_up();
 static void new_game();
-static void draw_scene();
+static void draw_scene(float time_passed);
 static void draw_models();
 static void draw_ceiling();
 static void draw_floor();
 static void draw_walls();
 static void draw_twisters();
+static void handle_keypress(SDL_Keycode key);
 
 void scene_init() {
   wall_texture = drawer_load_texture("wall.jpg");
@@ -50,6 +52,8 @@ void scene_init() {
   drawer_effect_init();
 
   new_game();
+
+  window_add_keypress_handler(handle_keypress);
 }
 
 void scene_quit() {
@@ -65,8 +69,8 @@ void scene_update(float time_passed) {
   if (game_state == GAME_RUNNING) walker_step(walker, time_passed);
 }
 
-void scene_draw() {
-  draw_scene();
+void scene_draw(float time_passed) {
+  draw_scene(time_passed);
 }
 
 static void camera_update_pos(float pos[3]) {
@@ -98,14 +102,14 @@ static void new_game() {
   time_endgame = global_time = 0.0;
 }
 
-static void draw_scene() {
+static void draw_scene(float time_passed) {
   if (!drawer_effect_is_enabled()) {
     drawer_use_rendertarget(DRAWER_WINDOW_RENDERTARGET, 1);
     draw_models();
   } else {
     drawer_effect_begin_frame();
     draw_models();
-    Texture effect_result = drawer_effect_apply();
+    Texture effect_result = drawer_effect_apply(time_passed);
     drawer_use_rendertarget(DRAWER_WINDOW_RENDERTARGET, 1);
     drawer_effect_render_to_screen(effect_result);
   }
@@ -114,34 +118,22 @@ static void draw_scene() {
 static void draw_models() {
   float view[16];
   camera_get_matrix(view);
-  drawer_modelview_set(view);
-  
+
+  drawer_view_set(view);
   drawer_effect_set_view_matrix(view);
 
-  draw_floor();
-  drawer_modelview_set(view);
-
-  draw_ceiling();
-  drawer_modelview_set(view);
-
-  draw_walls();
-  drawer_modelview_set(view);
-
-  draw_twisters();
-  drawer_modelview_set(view);
+  draw_floor(); // 0
+  draw_ceiling(); // 1
+  draw_walls(); // 2
+  draw_twisters(); // 3-12
 }
 
 static void draw_ceiling() {
   float model[16];
   create_identity_m4(model);
   translate_m4(model, 0.0, 1.0, 0.0);
-  
-  float view[16], mv[16];
-  drawer_modelview_get(view);
-  copy_m4_m4(mv, view);
-  mul_m4_m4(mv, model);
-  drawer_modelview_set(mv);
-  
+
+  drawer_model_set(model);
   drawer_effect_store_model_matrix(model);
 
   drawer_use_program(textured_program);
@@ -152,7 +144,8 @@ static void draw_ceiling() {
 static void draw_floor() {
   float model[16];
   create_identity_m4(model);
-  
+
+  drawer_model_set(model);
   drawer_effect_store_model_matrix(model);
 
   drawer_use_program(textured_program);
@@ -163,18 +156,13 @@ static void draw_floor() {
 static void draw_walls() {
   float model[16];
   create_identity_m4(model);
-  
+
   if (game_state == GAME_STARTING)
     scale_m4(model, 1.0, global_time / WALL_GROW_TIME, 1.0);
   else if (game_state == GAME_ENDING)
     scale_m4(model, 1.0, 1.0 - ((global_time - time_endgame) / WALL_GROW_TIME), 1.0);
-  
-  float view[16], mv[16];
-  drawer_modelview_get(view);
-  copy_m4_m4(mv, view);
-  mul_m4_m4(mv, model);
-  drawer_modelview_set(mv);
-  
+
+  drawer_model_set(model);
   drawer_effect_store_model_matrix(model);
 
   drawer_use_program(textured_program);
@@ -183,11 +171,8 @@ static void draw_walls() {
 }
 
 static void draw_twisters() {
-  float view[16];
-  drawer_modelview_get(view);
-
   drawer_use_program(twister_program);
-  
+
   unsigned int i;
   for (i = 0; i < maze->height * maze->width; i++) {
     Cell* cell = &maze->cells[i];
@@ -197,15 +182,21 @@ static void draw_twisters() {
       translate_m4(model, cell->x + 0.5, 0.5, cell->y + 0.5);
       rotate_m4(model, global_time * 50.0, 0.0, 1.0, 0.0);
       rotate_m4(model, global_time * 35, 1.0, 0.0, 0.0);
-      
-      float mv[16];
-      copy_m4_m4(mv, view);
-      mul_m4_m4(mv, model);
-      drawer_modelview_set(mv);
-      
+
+      drawer_model_set(model);
       drawer_effect_store_model_matrix(model);
-      
+
       drawer_draw_mesh(pyramid);
+    }
+  }
+}
+
+static void handle_keypress(SDL_Keycode key) {
+  if (key == SDLK_SPACE) {
+    if (game_state == GAME_RUNNING) {
+      game_state = GAME_PAUSED;
+    } else if (game_state == GAME_PAUSED) {
+      game_state = GAME_RUNNING;
     }
   }
 }

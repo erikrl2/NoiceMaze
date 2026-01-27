@@ -43,16 +43,16 @@ void Effect::Destroy() {
   claimImg.Destroy();
 }
 
-Texture Effect::Apply(const EffectInputData& in) {
+Texture Effect::Apply(const EffectInputData& in, float dt) {
   std::swap(curr, prev);
 
-  ScatterPass(in);
+  ScatterPass(in, dt);
   FillPass(in);
 
   return !showAcc ? effectImgs[curr].noise : effectImgs[curr].acc;
 }
 
-void Effect::ScatterPass(const EffectInputData& in) {
+void Effect::ScatterPass(const EffectInputData& in, float dt) {
   if (accResetInterval > 0) {
     static unsigned frameCount = 0;
     if (++frameCount % accResetInterval == 0) effectImgs[prev].acc.Clear();
@@ -70,8 +70,8 @@ void Effect::ScatterPass(const EffectInputData& in) {
 
   in.currIdTex.Bind(0);
   in.prevIdTex.Bind(1);
-
   in.prevDepthTex.Bind(2);
+  in.prevFlowTex.Bind(3);
 
   modelSSB.Upload(in.modelMats);
   modelSSB.Bind(0);
@@ -79,6 +79,7 @@ void Effect::ScatterPass(const EffectInputData& in) {
   scrollShader.SetMat4v("uViewMat", 2, in.prevCurrView);
   scrollShader.SetMat4v("uProjMat", 2, in.prevCurrProj);
   scrollShader.SetInt("uCurrInd", in.currInd);
+  scrollShader.SetFloat("uScrollSpeed", scrollSpeed * dt);
 
   scrollShader.DispatchCompute(width, height, 16);
 }

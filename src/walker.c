@@ -37,7 +37,7 @@ Walker* walker_create(
   copy_cell(walker->cell, start_cell_pos);
   walker->direction = start_dir;
   walker->interp_step = 0.0;
-  walker->interp_speed = 1.0;
+  walker->interp_speed = 0.8;
   walker->set_position_callback = pos_callback;
   walker->set_rotation_callback = rot_callback;
   walker->finish_callback = fin_callback;

@@ -11,6 +11,7 @@ layout(r32ui, binding = 4) uniform uimage2D uClaimTex;
 layout(binding = 0) uniform isampler2D uCurrIdTex;
 layout(binding = 1) uniform isampler2D uPrevIdTex;
 layout(binding = 2) uniform sampler2D uPrevDepthTex;
+layout(binding = 3) uniform sampler2D uPrevFlowTex;
 
 layout(std430, binding = 0) readonly buffer ObjectTransforms {
     mat4 modelMats[][2];
@@ -19,6 +20,7 @@ layout(std430, binding = 0) readonly buffer ObjectTransforms {
 uniform mat4 uViewMat[2];
 uniform mat4 uProjMat[2];
 uniform int uCurrInd;
+uniform float uScrollSpeed;
 
 vec2 quantizePx(vec2 v, float q) {
   return round(v * q) / q;
@@ -45,7 +47,7 @@ void main() {
 
 #if 0 // DEBUG
   int id = texelFetch(uCurrIdTex, ivec2(round((vec2(prevPx) + 0.5) / vec2(noiseRes) * vec2(fullRes) - 0.5)), 0).r;
-  imageStore(uCurrNoiseTex, prevPx, vec4(id == 0 ? 1.0 : 0.0, 1, 0, 0));
+  imageStore(uCurrNoiseTex, prevPx, vec4(id == 2 ? 1.0 : 0.0, 1, 0, 0));
   return;
 #endif
 
@@ -77,9 +79,13 @@ void main() {
   vec2 reprojDelta = (currUV - prevUV) * vec2(noiseRes);
   reprojDelta = quantizePx(reprojDelta, 128.0);
 
+  vec2 flowDir = texelFetch(uPrevFlowTex, prevFullPx, 0).xy;
+  vec2 flow = flowDir * uScrollSpeed;
+  flow = quantizePx(flow, 32.0);
+
   vec2 prevAcc = imageLoad(uPrevAccTex, prevPx).xy;
 
-  vec2 totalMove = prevAcc + reprojDelta;
+  vec2 totalMove = prevAcc + reprojDelta + flow;
 
   vec2 intStep = trunc(totalMove);
   vec2 nextAcc = totalMove - intStep;

@@ -37,7 +37,7 @@ void effect_on_resize(EffectC* e, int width, int height) {
   e->eff.OnResize(width, height);
 }
 
-GLuint effect_apply(EffectC* e, const EffectInputDataC* in) {
+GLuint effect_apply(EffectC* e, const EffectInputDataC* in, float dt) {
   assert(e && in);
 
   assert(in->prev_curr_proj && in->prev_curr_view);
@@ -46,6 +46,7 @@ GLuint effect_apply(EffectC* e, const EffectInputDataC* in) {
   EffectInputData cpp{};
   cpp.currIdTex = Texture{in->curr_id_tex};
   cpp.prevIdTex = Texture{in->prev_id_tex};
+  cpp.prevFlowTex = Texture{in->prev_flow_tex};
   cpp.prevDepthTex = Texture{in->prev_depth_tex};
   cpp.currInd = in->curr_ind;
 
@@ -57,7 +58,7 @@ GLuint effect_apply(EffectC* e, const EffectInputDataC* in) {
   auto mats = (const glm::mat4(*)[2])(in->model_mats);
   cpp.modelMats = std::span<const glm::mat4[2]>(mats, in->model_mat_count);
 
-  return e->eff.Apply(cpp);
+  return e->eff.Apply(cpp, dt);
 }
 
 void effect_set_acc_reset_interval(EffectC* e, int interval) {

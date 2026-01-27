@@ -5,12 +5,12 @@
 
 #version 430 core
 
-layout(location = 0) out vec4 fragColor;
-layout(location = 1) out int id;
+layout(location = 0) out vec4 out_fragColor;
+layout(location = 1) out int out_id;
 
 uniform int ObjectID;
 
 void main() {
-  fragColor = vec4(1.0);
-  id = ObjectID;
+  out_fragColor = vec4(1.0);
+  out_id = ObjectID;
 }

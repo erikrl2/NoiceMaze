@@ -8,16 +8,15 @@
 #include "file.h"
 #include "MathLib.h"
 #include "mesh.h"
-#include "window.h"
 #include "noice/effect_c.h"
+#include "window.h"
 
 #include <FreeImage.h>
 #include <GL/glew.h>
+#include <SDL_keycode.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
-static float mat_projection[16], mat_modelview[16];
+static float mat_projection[16], mat_view[16], mat_model[16];
 static GLuint current_program;
 static char vbo_bound = 0;
 static float global_time = 0.0;
@@ -30,19 +29,20 @@ static Mesh* screen_square_mesh;
 static struct {
   EffectC* effect;
   char enabled;
-  
+
   GLuint fbo[2];
   GLuint depth_tex[2];
   GLuint id_tex[2];
-  
+  GLuint flow_tex[2];
+
   float proj_mats[2][16];
   float view_mats[2][16];
-  
+
   float (*model_mats)[2][16];
   size_t model_mat_capacity;
   size_t model_mat_count;
   size_t prev_model_mat_count;
-  
+
   int curr_frame_idx; // 0 or 1
   int current_object_id;
 } effect_data = {0};
@@ -74,8 +74,6 @@ void drawer_init() {
   create_perspective_m4(mat_projection, 90.0, (float)screen_size[0] / (float)screen_size[1], 0.1, 100.0);
   set_viewport(0, 0, screen_size[0], screen_size[1]);
 
-  //glActiveTexture(GL_TEXTURE0);
-
   pp_vertex_shader = create_shader(GL_VERTEX_SHADER, "pp.vert.glsl");
   pp_fragment_shader = create_shader(GL_FRAGMENT_SHADER, "pp.frag.glsl");
   pp_program = create_program(pp_vertex_shader, pp_fragment_shader);
@@ -87,13 +85,12 @@ void drawer_quit() {
   FreeImage_DeInitialise();
 }
 
-void drawer_modelview_set(float matrix[16]) {
-  copy_m4_m4(mat_modelview, matrix);
-  update_uniforms();
+void drawer_view_set(float matrix[16]) {
+  copy_m4_m4(mat_view, matrix);
 }
 
-void drawer_modelview_get(float matrix[16]) {
-  copy_m4_m4(matrix, mat_modelview);
+void drawer_model_set(float matrix[16]) {
+  copy_m4_m4(mat_model, matrix);
 }
 
 Program drawer_create_program(char* vertex_filename, char* fragment_filename) {
@@ -109,7 +106,6 @@ Program drawer_create_program(char* vertex_filename, char* fragment_filename) {
 void drawer_use_program(Program program) {
   glUseProgram(program);
   current_program = program;
-  update_uniforms();
 }
 
 Texture drawer_load_texture(char* filename) {
@@ -188,6 +184,7 @@ void drawer_use_rendertarget(Rendertarget target, char clear) {
 }
 
 void drawer_draw_mesh(Mesh* mesh) {
+  update_uniforms();
   if (mesh->vbo) {
     MeshVBO* vbo = mesh->vbo;
     glBindVertexArray(vbo->vao);
@@ -340,18 +337,31 @@ static void update_uniforms() {
   if (current_program == 0) return;
 
   GLint location;
-  if (uniform_exists("MVMatrix", &location)) glUniformMatrix4fv(location, 1, GL_FALSE, mat_modelview);
+  if (uniform_exists("MMatrix", &location)) glUniformMatrix4fv(location, 1, GL_FALSE, mat_model);
+  if (uniform_exists("MVMatrix", &location)) {
+    float mv[16];
+    copy_m4_m4(mv, mat_view);
+    mul_m4_m4(mv, mat_model);
+    glUniformMatrix4fv(location, 1, GL_FALSE, mv);
+  }
+  if (uniform_exists("VPMatrix", &location)) {
+    float vp[16];
+    copy_m4_m4(vp, mat_projection);
+    mul_m4_m4(vp, mat_view);
+    glUniformMatrix4fv(location, 1, GL_FALSE, vp);
+  }
   if (uniform_exists("MVPMatrix", &location)) {
     float mvp[16];
     copy_m4_m4(mvp, mat_projection);
-    mul_m4_m4(mvp, mat_modelview);
+    mul_m4_m4(mvp, mat_view);
+    mul_m4_m4(mvp, mat_model);
     glUniformMatrix4fv(location, 1, GL_FALSE, mvp);
   }
-  
-  if (effect_data.enabled && effect_data.effect) {
-    if (uniform_exists("ObjectID", &location))
-      glUniform1i(location, effect_data.current_object_id);
-  }
+
+  bool effect_enabled = effect_data.enabled && effect_data.effect;
+  if (uniform_exists("EffectEnabled", &location)) glUniform1i(location, effect_enabled);
+  if (uniform_exists("ObjectID", &location)) glUniform1i(location, effect_data.current_object_id);
+  if (uniform_exists("ViewportSize", &location)) glUniform2f(location, viewport_size[0], viewport_size[1]);
 }
 
 static void set_viewport(int posx, int posy, int sizex, int sizey) {
@@ -372,35 +382,38 @@ static void effect_create_framebuffers() {
   for (int i = 0; i < 2; i++) {
     glGenFramebuffers(1, &effect_data.fbo[i]);
     glBindFramebuffer(GL_FRAMEBUFFER, effect_data.fbo[i]);
-    
+
     glGenTextures(1, &effect_data.id_tex[i]);
     glBindTexture(GL_TEXTURE_2D, effect_data.id_tex[i]);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_R32I, screen_size[0], screen_size[1], 0, GL_RED_INTEGER, GL_INT, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, effect_data.id_tex[i], 0);
-    
-    glGenTextures(1, &effect_data.depth_tex[i]);
-    glBindTexture(GL_TEXTURE_2D, effect_data.depth_tex[i]);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, screen_size[0], screen_size[1], 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+
+    glGenTextures(1, &effect_data.flow_tex[i]);
+    glBindTexture(GL_TEXTURE_2D, effect_data.flow_tex[i]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, screen_size[0], screen_size[1], 0, GL_RG, GL_FLOAT, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, effect_data.flow_tex[i], 0);
+
+    glGenTextures(1, &effect_data.depth_tex[i]);
+    glBindTexture(GL_TEXTURE_2D, effect_data.depth_tex[i]);
+    glTexImage2D(
+        GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, screen_size[0], screen_size[1], 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL
+    );
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, effect_data.depth_tex[i], 0);
-    
-    GLenum draw_buffers[] = {GL_NONE, GL_COLOR_ATTACHMENT0};
-    glDrawBuffers(2, draw_buffers);
-    
+
+    GLenum draw_buffers[] = {GL_NONE, GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
+    glDrawBuffers(3, draw_buffers);
+
     GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
     if (status != GL_FRAMEBUFFER_COMPLETE) {
       printf("Effect framebuffer %d incomplete: 0x%x\n", i, status);
     }
   }
-  
-  //glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 static void effect_destroy_framebuffers() {
@@ -416,41 +429,41 @@ static void effect_destroy_framebuffers() {
 
 static void effect_ensure_model_mat_capacity(size_t required) {
   if (effect_data.model_mat_capacity >= required) return;
-  
+
   size_t new_capacity = effect_data.model_mat_capacity == 0 ? 16 : effect_data.model_mat_capacity * 2;
   while (new_capacity < required) new_capacity *= 2;
-  
+
   effect_data.model_mats = realloc(effect_data.model_mats, sizeof(float[2][16]) * new_capacity);
   effect_data.model_mat_capacity = new_capacity;
 }
 
 void drawer_effect_init() {
   if (effect_data.effect) return;
-  
+
   effect_data.effect = effect_create();
   effect_data.enabled = 1;
   effect_data.curr_frame_idx = 0;
   effect_data.current_object_id = 0;
-  
+
   effect_create_framebuffers();
   effect_init(effect_data.effect, screen_size[0], screen_size[1]);
-  
+
   effect_data.model_mat_count = 0;
   effect_data.model_mat_capacity = 16;
   effect_data.model_mats = malloc(sizeof(float[2][16]) * effect_data.model_mat_capacity);
-  
+
   printf("Noice effect initialized (toggle with 'E' key)\n");
 }
 
 void drawer_effect_shutdown() {
   if (!effect_data.effect) return;
-  
+
   effect_shutdown(effect_data.effect);
   effect_destroy(effect_data.effect);
   effect_data.effect = NULL;
-  
+
   effect_destroy_framebuffers();
-  
+
   if (effect_data.model_mats) {
     free(effect_data.model_mats);
     effect_data.model_mats = NULL;
@@ -460,7 +473,7 @@ void drawer_effect_shutdown() {
 
 void drawer_effect_toggle() {
   if (!effect_data.effect) return;
-  
+
   effect_data.enabled = !effect_data.enabled;
 }
 
@@ -470,89 +483,90 @@ char drawer_effect_is_enabled() {
 
 void drawer_effect_begin_frame() {
   if (!drawer_effect_is_enabled()) return;
-  
+
   effect_data.curr_frame_idx = 1 - effect_data.curr_frame_idx;
-  
+
   copy_m4_m4(effect_data.proj_mats[effect_data.curr_frame_idx], mat_projection);
-  
+
   effect_data.prev_model_mat_count = effect_data.model_mat_count;
   effect_data.model_mat_count = 0;
   effect_data.current_object_id = -1;
-  
+
   glBindFramebuffer(GL_FRAMEBUFFER, effect_data.fbo[effect_data.curr_frame_idx]);
-  
+
   GLint clear_id = -1;
   glClearBufferiv(GL_COLOR, 1, &clear_id);
+
+  GLfloat clear_flow[2] = {0.0f, 0.0f};
+  glClearBufferfv(GL_COLOR, 2, clear_flow);
 
   glClear(GL_DEPTH_BUFFER_BIT);
 }
 
 void drawer_effect_set_view_matrix(float view[16]) {
   if (!drawer_effect_is_enabled()) return;
-  
+
   int curr_idx = effect_data.curr_frame_idx;
   copy_m4_m4(effect_data.view_mats[curr_idx], view);
 }
 
 int drawer_effect_store_model_matrix(float model[16]) {
   if (!drawer_effect_is_enabled()) return -1;
-  
+
   size_t idx = effect_data.model_mat_count;
   effect_ensure_model_mat_capacity(idx + 1);
-  
+
   int curr_idx = effect_data.curr_frame_idx;
   int prev_idx = 1 - curr_idx;
-  
+
   copy_m4_m4(effect_data.model_mats[idx][curr_idx], model);
-  
+
   if (idx >= effect_data.prev_model_mat_count) {
     copy_m4_m4(effect_data.model_mats[idx][prev_idx], model);
   }
-  
+
   effect_data.model_mat_count++;
-  
+
   effect_data.current_object_id = (int)idx;
-  update_uniforms();
-  
+
   return (int)idx;
 }
 
-Texture drawer_effect_apply() {
+Texture drawer_effect_apply(float time_passed) {
   if (!drawer_effect_is_enabled()) return 0;
-  
+
   int curr_idx = effect_data.curr_frame_idx;
   int prev_idx = 1 - curr_idx;
-  
+
   EffectInputDataC input = {0};
   input.curr_id_tex = effect_data.id_tex[curr_idx];
   input.prev_id_tex = effect_data.id_tex[prev_idx];
+  input.prev_flow_tex = effect_data.flow_tex[prev_idx];
   input.prev_depth_tex = effect_data.depth_tex[prev_idx];
-  input.prev_curr_proj = (const float(*)[16])effect_data.proj_mats;
-  input.prev_curr_view = (const float(*)[16])effect_data.view_mats;
-  input.model_mats = (const float(*)[2][16])effect_data.model_mats;
+  input.prev_curr_proj = (const float (*)[16])effect_data.proj_mats;
+  input.prev_curr_view = (const float (*)[16])effect_data.view_mats;
+  input.model_mats = (const float (*)[2][16])effect_data.model_mats;
   input.model_mat_count = effect_data.model_mat_count;
   input.curr_ind = curr_idx;
-  
-  GLuint result_tex = effect_apply(effect_data.effect, &input);
-  
-  //glBindFramebuffer(GL_FRAMEBUFFER, 0);
-  
+
+  GLuint result_tex = effect_apply(effect_data.effect, &input, time_passed);
+
   return result_tex;
 }
 
 void drawer_effect_render_to_screen(Texture tex) {
   if (!tex) return;
-  
+
   glDisable(GL_DEPTH_TEST);
-  
+
   drawer_use_program(pp_program);
-  
+
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, tex);
   GLint location;
   if (uniform_exists("Image", &location)) glUniform1i(location, 0);
-  
+
   drawer_draw_mesh(screen_square_mesh);
-  
+
   glEnable(GL_DEPTH_TEST);
 }

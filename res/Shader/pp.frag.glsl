@@ -5,11 +5,17 @@
 
 #version 430 core
 
-out vec4 fragColor;
+out vec4 out_fragColor;
 
 uniform sampler2D Image;
+uniform bool EffectEnabled = true;
 
 void main() {
-  //fragColor = texelFetch(Image, ivec2(gl_FragCoord.xy), 0);
-  fragColor = vec4(vec3(texelFetch(Image, ivec2(gl_FragCoord.xy), 0).r), 1);
+  vec3 c = texelFetch(Image, ivec2(gl_FragCoord.xy), 0).rgb;
+
+  if (EffectEnabled) {
+    out_fragColor = vec4(c.r, c.r, c.r, 1);
+  } else {
+    out_fragColor = vec4(c, 1);
+  }
 }

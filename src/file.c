@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-static char *resource_dir, *output_dir;
+static char* resource_dir;
 static char* prefix_texture = "Textures/";
 static char* prefix_shader = "Shader/";
 
@@ -52,23 +52,6 @@ char* file_resource(char* filename, enum FileResource type) {
   str = malloc(strlen(resource_dir) + strlen(prefix_str) + strlen(filename) + 1);
   strcpy(str, resource_dir);
   strcat(str, prefix_str);
-  strcat(str, filename);
-
-  return str;
-}
-
-void file_set_output_dir(char* dir) {
-  output_dir = malloc(strlen(dir) + 1);
-  strcpy(output_dir, dir);
-}
-
-char* file_output(char* filename) {
-  static char* str;
-
-  if (str) free(str);
-
-  str = malloc(strlen(output_dir) + strlen(filename) + 1);
-  strcpy(str, output_dir);
   strcat(str, filename);
 
   return str;
