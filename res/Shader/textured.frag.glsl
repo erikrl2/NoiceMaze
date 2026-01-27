@@ -5,13 +5,13 @@
 
 #version 430 core
 
-uniform sampler2D Diffuse;
-
 in vec3 position;
 in vec2 texcoord;
 
 layout(location = 0) out vec4 fragColor;
 layout(location = 1) out int id;
+
+uniform sampler2D Diffuse;
 
 uniform int ObjectID;
 

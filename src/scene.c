@@ -6,7 +6,6 @@
 #include "scene.h"
 
 #include "camera.h"
-#include "config.h"
 #include "drawer.h"
 #include "MathLib.h"
 #include "mesh.h"
@@ -21,34 +20,24 @@ static Mesh *maze_mesh, *plane, *pyramid;
 static Walker* walker;
 static Texture wall_texture, ceiling_texture, floor_texture;
 static Program textured_program, twister_program;
-// static Rendertarget reflection_target;
-
-static char postprocess_enabled;
 
 #define WALL_GROW_TIME 2.0
 
 enum GameState { GAME_STARTING, GAME_RUNNING, GAME_ENDING };
 static enum GameState game_state;
 
-enum RenderPass {
-  PASS_FINAL,
-};
-
-static void parse_pp_pipeline_config();
 static void camera_update_pos(float pos[3]);
 static void finish();
 static void clean_up();
 static void new_game();
 static void draw_scene();
-static void draw_models(enum RenderPass pass);
-static void draw_ceiling(enum RenderPass pass);
-static void draw_floor(enum RenderPass pass);
-static void draw_walls(enum RenderPass pass);
-static void draw_twisters(enum RenderPass pass);
+static void draw_models();
+static void draw_ceiling();
+static void draw_floor();
+static void draw_walls();
+static void draw_twisters();
 
 void scene_init() {
-  postprocess_enabled = config_get_value_integer("postprocess", 1);
-
   wall_texture = drawer_load_texture("wall.jpg");
   ceiling_texture = drawer_load_texture("ceiling.jpg");
   floor_texture = drawer_load_texture("floor.jpg");
@@ -56,11 +45,8 @@ void scene_init() {
   textured_program = drawer_create_program("textured.vert.glsl", "textured.frag.glsl");
   twister_program = drawer_create_program("twister.vert.glsl", "twister.frag.glsl");
 
-  if (postprocess_enabled) parse_pp_pipeline_config();
-
   pyramid = mesh_create_pyramid(0.2);
 
-  // Initialize Noice effect
   drawer_effect_init();
 
   new_game();
@@ -80,34 +66,7 @@ void scene_update(float time_passed) {
 }
 
 void scene_draw() {
-  if (drawer_get_3d_mode() == DRAWER_3D_OFF)
-    draw_scene();
-}
-
-static void parse_pp_pipeline_config() {
-  char* c = (char*)config_get_value("pp_pipeline");
-  if (!c) return;
-  int i;
-  while (1) {
-    char* filename_start = c;
-    while (*c != ';') c++;
-    int filename_length = c - filename_start;
-
-    char* filename = malloc(filename_length + 1);
-    for (i = 0; i < filename_length; i++) filename[i] = *(filename_start + i);
-    filename[filename_length] = '\0';
-
-    c++; // skip ';'
-
-    char key = *c;
-
-    drawer_postprocess_pass_add(filename, key);
-    free(filename);
-
-    c++;
-    if (*c == '\0') break; // check character after key idendifier. if '\0', we finished parsing
-    c++; // skip ';'
-  }
+  draw_scene();
 }
 
 static void camera_update_pos(float pos[3]) {
@@ -140,50 +99,39 @@ static void new_game() {
 }
 
 static void draw_scene() {
-  char use_effect = drawer_effect_is_enabled();
-  
-  if (use_effect) {
+  if (!drawer_effect_is_enabled()) {
+    drawer_use_rendertarget(DRAWER_WINDOW_RENDERTARGET, 1);
+    draw_models();
+  } else {
     drawer_effect_begin_frame();
-    draw_models(PASS_FINAL);
-    
+    draw_models();
     Texture effect_result = drawer_effect_apply();
-    
     drawer_use_rendertarget(DRAWER_WINDOW_RENDERTARGET, 1);
     drawer_effect_render_to_screen(effect_result);
-  } else {
-    drawer_use_rendertarget(
-        postprocess_enabled ? DRAWER_PP_RENDERTARGET : DRAWER_WINDOW_RENDERTARGET,
-        1
-    );
-    draw_models(PASS_FINAL);
-    
-    if (postprocess_enabled) {
-      drawer_do_postprocess();
-    }
   }
 }
 
-static void draw_models(enum RenderPass pass) {
+static void draw_models() {
   float view[16];
   camera_get_matrix(view);
   drawer_modelview_set(view);
   
   drawer_effect_set_view_matrix(view);
 
-  //draw_floor(pass);
-  //drawer_modelview_set(view);
+  draw_floor();
+  drawer_modelview_set(view);
 
-  //draw_ceiling(pass);
-  //drawer_modelview_set(view);
+  draw_ceiling();
+  drawer_modelview_set(view);
 
-  //draw_walls(pass);
-  //drawer_modelview_set(view);
+  draw_walls();
+  drawer_modelview_set(view);
 
-  draw_twisters(pass);
+  draw_twisters();
   drawer_modelview_set(view);
 }
 
-static void draw_ceiling(enum RenderPass pass) {
+static void draw_ceiling() {
   float model[16];
   create_identity_m4(model);
   translate_m4(model, 0.0, 1.0, 0.0);
@@ -201,7 +149,7 @@ static void draw_ceiling(enum RenderPass pass) {
   drawer_draw_mesh(plane);
 }
 
-static void draw_floor(enum RenderPass pass) {
+static void draw_floor() {
   float model[16];
   create_identity_m4(model);
   
@@ -212,7 +160,7 @@ static void draw_floor(enum RenderPass pass) {
   drawer_draw_mesh(plane);
 }
 
-static void draw_walls(enum RenderPass pass) {
+static void draw_walls() {
   float model[16];
   create_identity_m4(model);
   
@@ -234,7 +182,7 @@ static void draw_walls(enum RenderPass pass) {
   drawer_draw_mesh(maze_mesh);
 }
 
-static void draw_twisters(enum RenderPass pass) {
+static void draw_twisters() {
   float view[16];
   drawer_modelview_get(view);
 

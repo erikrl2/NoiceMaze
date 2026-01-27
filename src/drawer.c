@@ -8,7 +8,6 @@
 #include "file.h"
 #include "MathLib.h"
 #include "mesh.h"
-#include "noise.h"
 #include "window.h"
 #include "noice/effect_c.h"
 
@@ -24,22 +23,9 @@ static char vbo_bound = 0;
 static float global_time = 0.0;
 static int screen_size[2];
 static int viewport_position[2], viewport_size[2];
-enum Drawer3DMode render_3d_mode = DRAWER_3D_OFF;
 
-struct PostProcessPass {
-  GLuint shader;
-  GLuint program;
-  SDL_Keycode key;
-  unsigned enabled : 1;
-};
-static struct PostProcessPass pp_passes[16];
-static GLuint pp_passes_count = 0;
-static GLuint pp_draw_targets[2];
 static GLuint pp_vertex_shader, pp_fragment_shader, pp_program;
-
 static Mesh* screen_square_mesh;
-static Texture noise_texture;
-#define NOISE_TEXTURE_LAYER 7
 
 static struct {
   EffectC* effect;
@@ -66,8 +52,6 @@ static GLuint create_shader(GLenum type, char* filename);
 static GLuint create_program(GLuint vertex_shader, GLuint fragment_shader);
 static int uniform_exists(char* name, GLint* location);
 static GLuint create_texture(GLsizei width, GLsizei height, GLenum format, GLfloat* data);
-static GLuint generate_noise_texture();
-static void calc_gauss_values(GLint location);
 static void set_viewport(int posx, int posy, int sizex, int sizey);
 static void handle_keypress(SDL_Keycode key);
 static void effect_create_framebuffers();
@@ -90,12 +74,7 @@ void drawer_init() {
   create_perspective_m4(mat_projection, 90.0, (float)screen_size[0] / (float)screen_size[1], 0.1, 100.0);
   set_viewport(0, 0, screen_size[0], screen_size[1]);
 
-  pp_draw_targets[0] = drawer_create_rendertarget();
-  pp_draw_targets[1] = drawer_create_rendertarget();
-
-  glActiveTexture(GL_TEXTURE0 + NOISE_TEXTURE_LAYER);
-  noise_texture = generate_noise_texture();
-  glActiveTexture(GL_TEXTURE0);
+  //glActiveTexture(GL_TEXTURE0);
 
   pp_vertex_shader = create_shader(GL_VERTEX_SHADER, "pp.vert.glsl");
   pp_fragment_shader = create_shader(GL_FRAGMENT_SHADER, "pp.frag.glsl");
@@ -176,9 +155,7 @@ void drawer_use_rendertarget_texture(Rendertarget target, unsigned int texture_u
       GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME, (GLint*)&texture
   );
 
-  glActiveTexture(GL_TEXTURE0 + texture_unit);
-  glBindTexture(GL_TEXTURE_2D, texture);
-  if (uniform_exists(uniform_name, &location)) glUniform1i(location, texture_unit);
+  drawer_use_texture(texture, texture_unit, uniform_name);
 }
 
 Rendertarget drawer_create_rendertarget() {
@@ -196,7 +173,7 @@ Rendertarget drawer_create_rendertarget() {
 
   glGenRenderbuffers(1, &depth);
   glBindRenderbuffer(GL_RENDERBUFFER, depth);
-  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, screen_size[0], screen_size[1]);
+  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, screen_size[0], screen_size[1]);
   glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depth);
 
   glDrawBuffer(GL_COLOR_ATTACHMENT0);
@@ -205,14 +182,9 @@ Rendertarget drawer_create_rendertarget() {
 }
 
 void drawer_use_rendertarget(Rendertarget target, char clear) {
-  if (target == DRAWER_PP_RENDERTARGET) target = pp_draw_targets[0];
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, target);
 
   if (clear) glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-}
-
-void drawer_depth_mask(unsigned char mask) {
-  glDepthMask(mask);
 }
 
 void drawer_draw_mesh(Mesh* mesh) {
@@ -223,77 +195,12 @@ void drawer_draw_mesh(Mesh* mesh) {
   }
 }
 
-void drawer_postprocess_pass_add(char* filename, SDL_Keycode toggle_key) {
-  struct PostProcessPass* pass = &pp_passes[pp_passes_count++];
-  pass->key = toggle_key;
-  pass->enabled = 0;
-  pass->shader = create_shader(GL_FRAGMENT_SHADER, filename);
-  pass->program = create_program(pp_vertex_shader, pass->shader);
-
-  drawer_use_program(pass->program);
-}
-
-void drawer_do_postprocess() {
-  GLuint read = pp_draw_targets[0], draw = pp_draw_targets[1], window = 0;
-
-  GLuint* enabled_passes;
-  enabled_passes = (GLuint*)malloc(pp_passes_count * sizeof(GLuint));
-
-  int enabled_passes_count = 0;
-  unsigned int pass;
-
-  for (pass = 0; pass < pp_passes_count; pass++) {
-    struct PostProcessPass* p = &pp_passes[pass];
-    if (p->enabled) enabled_passes[enabled_passes_count++] = p->program;
-  }
-
-  if (enabled_passes_count == 0) {
-    enabled_passes[0] = pp_program;
-    enabled_passes_count = 1;
-  }
-
-  glActiveTexture(GL_TEXTURE0);
-
-  for (pass = 0; pass < enabled_passes_count; pass++) {
-    if (pass != 0) // do not swap on first pass 
-    {
-      Rendertarget temp;
-      temp = draw;
-      draw = read;
-      read = temp;
-    }
-    if (pass == enabled_passes_count - 1) draw = window;
-
-    drawer_use_program(enabled_passes[pass]);
-
-    drawer_use_rendertarget(draw, 1);
-    drawer_use_rendertarget_texture(read, 0, "Image");
-    drawer_draw_mesh(screen_square_mesh);
-  }
-
-  free(enabled_passes);
-}
-
 void drawer_begin_scene(float time_passed) {
   global_time += time_passed;
 }
 
 void drawer_end_scene() {
   window_swap_buffers();
-}
-
-void drawer_3d_reset() {}
-
-void drawer_3d_left() {}
-
-void drawer_3d_right() {}
-
-void drawer_set_3d_mode(enum Drawer3DMode mode) {
-  render_3d_mode = mode;
-}
-
-enum Drawer3DMode drawer_get_3d_mode() {
-  return render_3d_mode;
 }
 
 void drawer_create_mesh_vbo(Mesh* mesh) {
@@ -357,63 +264,12 @@ void drawer_free_mesh_vbo(MeshVBO* vbo) {
 }
 
 void drawer_screenshot() {
-  const unsigned int w = screen_size[0], h = screen_size[1];
-  GLfloat* data = malloc(sizeof(GLfloat) * w * h * 3);
-
-  glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-  GLuint read;
-  glGetIntegerv(GL_READ_BUFFER, (GLint*)&read);
-  glReadBuffer(GL_FRONT);
-
-  glReadPixels(0, 0, w, h, GL_RGB, GL_FLOAT, data);
-
-  glReadBuffer(read);
-
-  char filename[1024];
-  int index;
-  for (index = 0;; index++) {
-    sprintf(filename, "Screenshot%d.jpg", index);
-    char* filename_dir = file_output(filename);
-    strcpy(filename, filename_dir);
-    FILE* f;
-    if ((f = fopen(filename, "r")) == NULL)
-      break;
-    else
-      fclose(f);
-  }
-
-  FIBITMAP* bmp = FreeImage_Allocate(w, h, 24, 0, 0, 0);
-  unsigned int x, y;
-  for (x = 0; x < w; x++)
-    for (y = 0; y < h; y++) {
-      GLfloat* pixel = &data[(x + y * w) * 3];
-      RGBQUAD color;
-      color.rgbRed = pixel[0] * 255.0;
-      color.rgbGreen = pixel[1] * 255.0;
-      color.rgbBlue = pixel[2] * 255.0;
-      FreeImage_SetPixelColor(bmp, x, y, &color);
-    }
-
-  FreeImage_Save(FIF_JPEG, bmp, filename, 0);
-
-  free(data);
-  FreeImage_Unload(bmp);
+  // TODO: use my cpp accum screenshot tool
 }
 
 void drawer_print_glinfo() {
   printf("OpenGL Version: %s\n", glGetString(GL_VERSION));
   printf("GLSL Version: %s\n", glGetString(GL_SHADING_LANGUAGE_VERSION));
-}
-
-void drawer_write_glinfo() {
-  FILE* file = fopen(file_output("glinfo.txt"), "w");
-  fprintf(file, "OpenGL Info\n");
-  fprintf(file, "Version: %s\n", glGetString(GL_VERSION));
-  fprintf(file, "GLSL Version: %s\n", glGetString(GL_SHADING_LANGUAGE_VERSION));
-  fprintf(file, "Renderer: %s\n", glGetString(GL_RENDERER));
-  fprintf(file, "Vendor: %s\n", glGetString(GL_VENDOR));
-  fprintf(file, "Extensions: %s\n", glGetString(GL_EXTENSIONS));
-  fclose(file);
 }
 
 static GLuint create_shader(GLenum type, char* filename) {
@@ -480,33 +336,6 @@ static GLuint create_texture(GLsizei width, GLsizei height, GLenum format, GLflo
   return texture;
 }
 
-static GLuint generate_noise_texture() {
-  const int size = 256;
-  float* texture_data = malloc(sizeof(float) * size * size * 4);
-  noise_generate_texture2d_channel(4, size, size, 4, texture_data);
-  noise_generate_texture2d_channel(8, size, size, 4, texture_data + 1);
-  noise_generate_texture2d_channel(16, size, size, 4, texture_data + 2);
-  noise_generate_texture2d_channel(32, size, size, 4, texture_data + 3);
-
-  GLuint texture = create_texture(size, size, GL_RGBA, texture_data);
-
-  free(texture_data);
-
-  return texture;
-}
-
-static void calc_gauss_values(GLint location) {
-  const float sigma = 4.0;
-  float values[11][2];
-  int i;
-  for (i = 0; i < 11; i++) {
-    float x = i - 5.0;
-    values[i][0] = x;
-    values[i][1] = (1.0 / sqrtf(2.0 * M_PI * sigma * sigma)) * powf(M_E, -((x * x) / (2.0 * sigma * sigma)));
-  }
-  glUniform2fv(location, 11, (const GLfloat*)values);
-}
-
 static void update_uniforms() {
   if (current_program == 0) return;
 
@@ -518,9 +347,6 @@ static void update_uniforms() {
     mul_m4_m4(mvp, mat_modelview);
     glUniformMatrix4fv(location, 1, GL_FALSE, mvp);
   }
-  if (uniform_exists("GaussValues", &location)) calc_gauss_values(location);
-  if (uniform_exists("Noise", &location)) glUniform1i(location, NOISE_TEXTURE_LAYER);
-  if (uniform_exists("Time", &location)) glUniform1f(location, global_time);
   
   if (effect_data.enabled && effect_data.effect) {
     if (uniform_exists("ObjectID", &location))
@@ -537,15 +363,6 @@ static void set_viewport(int posx, int posy, int sizex, int sizey) {
 }
 
 static void handle_keypress(SDL_Keycode key) {
-  unsigned int pass;
-  for (pass = 0; pass < pp_passes_count; pass++) {
-    struct PostProcessPass* p = &pp_passes[pass];
-    if (p->key == key) {
-      p->enabled = !p->enabled;
-      printf("Postprocess pass %i toggled: %i\n", pass, p->enabled);
-    }
-  }
-  
   if (key == SDLK_e) {
     drawer_effect_toggle();
   }
@@ -583,7 +400,7 @@ static void effect_create_framebuffers() {
     }
   }
   
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  //glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 static void effect_destroy_framebuffers() {
@@ -641,25 +458,10 @@ void drawer_effect_shutdown() {
   effect_data.model_mat_capacity = 0;
 }
 
-void drawer_effect_on_resize(int width, int height) {
+void drawer_effect_toggle() {
   if (!effect_data.effect) return;
   
-  screen_size[0] = width;
-  screen_size[1] = height;
-  
-  effect_destroy_framebuffers();
-  effect_create_framebuffers();
-  effect_on_resize(effect_data.effect, width, height);
-}
-
-void drawer_effect_toggle() {
-  if (!effect_data.effect) {
-    printf("Effect not initialized!\n");
-    return;
-  }
-  
   effect_data.enabled = !effect_data.enabled;
-  printf("Noice effect %s\n", effect_data.enabled ? "enabled" : "disabled");
 }
 
 char drawer_effect_is_enabled() {
@@ -733,7 +535,7 @@ Texture drawer_effect_apply() {
   
   GLuint result_tex = effect_apply(effect_data.effect, &input);
   
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  //glBindFramebuffer(GL_FRAMEBUFFER, 0);
   
   return result_tex;
 }

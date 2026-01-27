@@ -5,9 +5,9 @@
 
 #version 430 core
 
-uniform sampler2D Image;
-
 out vec4 fragColor;
+
+uniform sampler2D Image;
 
 void main() {
   //fragColor = texelFetch(Image, ivec2(gl_FragCoord.xy), 0);
