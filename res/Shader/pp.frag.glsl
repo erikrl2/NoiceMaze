@@ -10,5 +10,6 @@ uniform sampler2D Image;
 out vec4 fragColor;
 
 void main() {
-  fragColor = texelFetch(Image, ivec2(gl_FragCoord.xy), 0);
+  //fragColor = texelFetch(Image, ivec2(gl_FragCoord.xy), 0);
+  fragColor = vec4(vec3(texelFetch(Image, ivec2(gl_FragCoord.xy), 0).r), 1);
 }

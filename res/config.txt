@@ -6,7 +6,7 @@ res_width=1280
 res_height=800
 fullscreen=0
 
-postprocess=1
+postprocess=0
 
 # This defines the postprocess-pipeline
 # The syntax is easy: filename;toggle_key;filename2;toggle_key2

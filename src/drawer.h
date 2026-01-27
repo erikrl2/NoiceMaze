@@ -9,6 +9,7 @@
 #include "mesh.h"
 
 #include <SDL_keycode.h>
+#include <stddef.h>
 
 enum Drawer3DMode { DRAWER_3D_OFF, DRAWER_3D_MODES_COUNT };
 
@@ -46,5 +47,17 @@ void drawer_free_mesh_vbo(MeshVBO* vbo);
 void drawer_screenshot();
 void drawer_print_glinfo();
 void drawer_write_glinfo();
+
+// Noice effect integration 
+void drawer_effect_init();
+void drawer_effect_shutdown();
+void drawer_effect_on_resize(int width, int height);
+void drawer_effect_toggle();
+char drawer_effect_is_enabled();
+void drawer_effect_begin_frame();
+void drawer_effect_set_view_matrix(float view[16]);
+int drawer_effect_store_model_matrix(float model[16]);
+Texture drawer_effect_apply();
+void drawer_effect_render_to_screen(Texture tex);
 
 #endif // H_DRAWER

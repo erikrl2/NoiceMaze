@@ -13,8 +13,8 @@ namespace util {
 } // namespace util
 
 void Effect::Init(int width, int height) {
-  scrollShader.CreateCompute("res/Shader/noice/scroll_move.comp.glsl");
-  fillShader.CreateCompute("res/Shader/noice/scroll_fill.comp.glsl");
+  scrollShader.CreateCompute("Shader/Noice/scroll_move.comp.glsl");
+  fillShader.CreateCompute("Shader/Noice/scroll_fill.comp.glsl");
 
   // modelSSB.Create(sizeof(glm::mat4[2]) * 8, nullptr, GL_DYNAMIC_DRAW); // or GL_STREAM_DRAW
 
@@ -43,16 +43,16 @@ void Effect::Destroy() {
   claimImg.Destroy();
 }
 
-Texture Effect::Apply(const EffectInputData& in, float dt) {
+Texture Effect::Apply(const EffectInputData& in) {
   std::swap(curr, prev);
 
-  ScatterPass(in, dt);
+  ScatterPass(in);
   FillPass(in);
 
   return !showAcc ? effectImgs[curr].noise : effectImgs[curr].acc;
 }
 
-void Effect::ScatterPass(const EffectInputData& in, float dt) {
+void Effect::ScatterPass(const EffectInputData& in) {
   if (accResetInterval > 0) {
     static unsigned frameCount = 0;
     if (++frameCount % accResetInterval == 0) effectImgs[prev].acc.Clear();

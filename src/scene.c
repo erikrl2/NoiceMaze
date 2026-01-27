@@ -60,10 +60,15 @@ void scene_init() {
 
   pyramid = mesh_create_pyramid(0.2);
 
+  // Initialize Noice effect
+  drawer_effect_init();
+
   new_game();
 }
 
-void scene_quit() {}
+void scene_quit() {
+  drawer_effect_shutdown();
+}
 
 void scene_update(float time_passed) {
   global_time += time_passed;
@@ -75,28 +80,8 @@ void scene_update(float time_passed) {
 }
 
 void scene_draw() {
-  drawer_use_rendertarget(postprocess_enabled ? DRAWER_PP_RENDERTARGET : DRAWER_WINDOW_RENDERTARGET, 1);
   if (drawer_get_3d_mode() == DRAWER_3D_OFF)
     draw_scene();
-  else {
-    float camera_rot[3], temp[3];
-    camera_get_rotation(camera_rot);
-
-    drawer_3d_left();
-    copy_v3_v3(temp, camera_rot);
-    temp[0] -= 2.5;
-    camera_set_rotation(temp);
-    draw_scene();
-
-    drawer_3d_right();
-    copy_v3_v3(temp, camera_rot);
-    temp[0] += 2.5;
-    camera_set_rotation(temp);
-    draw_scene();
-
-    camera_set_rotation(camera_rot);
-    drawer_3d_reset();
-  }
 }
 
 static void parse_pp_pipeline_config() {
@@ -155,37 +140,61 @@ static void new_game() {
 }
 
 static void draw_scene() {
-  drawer_use_rendertarget(
-      postprocess_enabled ? DRAWER_PP_RENDERTARGET : DRAWER_WINDOW_RENDERTARGET,
-      drawer_get_3d_mode() == DRAWER_3D_OFF ? 1 : 0
-  );
-  draw_models(PASS_FINAL);
-  if (postprocess_enabled) drawer_do_postprocess();
+  char use_effect = drawer_effect_is_enabled();
+  
+  if (use_effect) {
+    drawer_effect_begin_frame();
+    draw_models(PASS_FINAL);
+    
+    Texture effect_result = drawer_effect_apply();
+    
+    drawer_use_rendertarget(DRAWER_WINDOW_RENDERTARGET, 1);
+    drawer_effect_render_to_screen(effect_result);
+  } else {
+    drawer_use_rendertarget(
+        postprocess_enabled ? DRAWER_PP_RENDERTARGET : DRAWER_WINDOW_RENDERTARGET,
+        1
+    );
+    draw_models(PASS_FINAL);
+    
+    if (postprocess_enabled) {
+      drawer_do_postprocess();
+    }
+  }
 }
 
 static void draw_models(enum RenderPass pass) {
-  float mv[16];
-  camera_get_matrix(mv);
-  drawer_modelview_set(mv);
+  float view[16];
+  camera_get_matrix(view);
+  drawer_modelview_set(view);
+  
+  drawer_effect_set_view_matrix(view);
 
-  draw_floor(pass);
-  drawer_modelview_set(mv);
+  //draw_floor(pass);
+  //drawer_modelview_set(view);
 
-  draw_ceiling(pass);
-  drawer_modelview_set(mv);
+  //draw_ceiling(pass);
+  //drawer_modelview_set(view);
 
-  draw_walls(pass);
-  drawer_modelview_set(mv);
+  //draw_walls(pass);
+  //drawer_modelview_set(view);
 
   draw_twisters(pass);
-  drawer_modelview_set(mv);
+  drawer_modelview_set(view);
 }
 
 static void draw_ceiling(enum RenderPass pass) {
-  float temp[16];
-  drawer_modelview_get(temp);
-  translate_m4(temp, 0.0, 1.0, 0.0);
-  drawer_modelview_set(temp);
+  float model[16];
+  create_identity_m4(model);
+  translate_m4(model, 0.0, 1.0, 0.0);
+  
+  float view[16], mv[16];
+  drawer_modelview_get(view);
+  copy_m4_m4(mv, view);
+  mul_m4_m4(mv, model);
+  drawer_modelview_set(mv);
+  
+  drawer_effect_store_model_matrix(model);
 
   drawer_use_program(textured_program);
   drawer_use_texture(ceiling_texture, 0, "Diffuse");
@@ -193,19 +202,32 @@ static void draw_ceiling(enum RenderPass pass) {
 }
 
 static void draw_floor(enum RenderPass pass) {
+  float model[16];
+  create_identity_m4(model);
+  
+  drawer_effect_store_model_matrix(model);
+
   drawer_use_program(textured_program);
   drawer_use_texture(floor_texture, 0, "Diffuse");
   drawer_draw_mesh(plane);
 }
 
 static void draw_walls(enum RenderPass pass) {
-  float temp[16];
-  drawer_modelview_get(temp);
+  float model[16];
+  create_identity_m4(model);
+  
   if (game_state == GAME_STARTING)
-    scale_m4(temp, 1.0, global_time / WALL_GROW_TIME, 1.0);
+    scale_m4(model, 1.0, global_time / WALL_GROW_TIME, 1.0);
   else if (game_state == GAME_ENDING)
-    scale_m4(temp, 1.0, 1.0 - ((global_time - time_endgame) / WALL_GROW_TIME), 1.0);
-  drawer_modelview_set(temp);
+    scale_m4(model, 1.0, 1.0 - ((global_time - time_endgame) / WALL_GROW_TIME), 1.0);
+  
+  float view[16], mv[16];
+  drawer_modelview_get(view);
+  copy_m4_m4(mv, view);
+  mul_m4_m4(mv, model);
+  drawer_modelview_set(mv);
+  
+  drawer_effect_store_model_matrix(model);
 
   drawer_use_program(textured_program);
   drawer_use_texture(wall_texture, 0, "Diffuse");
@@ -213,22 +235,29 @@ static void draw_walls(enum RenderPass pass) {
 }
 
 static void draw_twisters(enum RenderPass pass) {
-  float mv[16], temp[16];
-  drawer_modelview_get(mv);
+  float view[16];
+  drawer_modelview_get(view);
 
   drawer_use_program(twister_program);
-  drawer_depth_mask(0);
+  
   unsigned int i;
   for (i = 0; i < maze->height * maze->width; i++) {
     Cell* cell = &maze->cells[i];
     if (cell->object == OBJ_TWISTER) {
-      copy_m4_m4(temp, mv);
-      translate_m4(temp, cell->x + 0.5, 0.5, cell->y + 0.5);
-      rotate_m4(temp, global_time * 50.0, 0.0, 1.0, 0.0);
-      rotate_m4(temp, global_time * 35, 1.0, 0.0, 0.0);
-      drawer_modelview_set(temp);
+      float model[16];
+      create_identity_m4(model);
+      translate_m4(model, cell->x + 0.5, 0.5, cell->y + 0.5);
+      rotate_m4(model, global_time * 50.0, 0.0, 1.0, 0.0);
+      rotate_m4(model, global_time * 35, 1.0, 0.0, 0.0);
+      
+      float mv[16];
+      copy_m4_m4(mv, view);
+      mul_m4_m4(mv, model);
+      drawer_modelview_set(mv);
+      
+      drawer_effect_store_model_matrix(model);
+      
       drawer_draw_mesh(pyramid);
     }
   }
-  drawer_depth_mask(1);
 }

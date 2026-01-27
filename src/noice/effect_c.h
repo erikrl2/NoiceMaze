@@ -5,6 +5,7 @@ extern "C" {
 #endif
 
 #include <GL/glew.h>
+#include <stdbool.h>
 
 typedef struct EffectC EffectC;
 
@@ -28,7 +29,7 @@ void effect_destroy(EffectC* e);
 void effect_init(EffectC* e, int width, int height);
 void effect_shutdown(EffectC* e);
 void effect_on_resize(EffectC* e, int width, int height);
-GLuint effect_apply(EffectC* e, const EffectInputDataC* in, float dt);
+GLuint effect_apply(EffectC* e, const EffectInputDataC* in);
 
 void effect_set_acc_reset_interval(EffectC* e, int interval);
 void effect_set_show_acc(EffectC* e, bool show);

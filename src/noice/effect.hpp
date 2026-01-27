@@ -23,12 +23,12 @@ public:
   void Init(int width, int height);
   void Destroy();
 
-  Texture Apply(const EffectInputData& in, float dt);
+  Texture Apply(const EffectInputData& in);
 
   void OnResize(int width, int height);
 
 private:
-  void ScatterPass(const EffectInputData& in, float dt);
+  void ScatterPass(const EffectInputData& in);
   void FillPass(const EffectInputData& in);
 
   void ResetBuffers();

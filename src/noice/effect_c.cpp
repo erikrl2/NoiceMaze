@@ -37,7 +37,7 @@ void effect_on_resize(EffectC* e, int width, int height) {
   e->eff.OnResize(width, height);
 }
 
-GLuint effect_apply(EffectC* e, const EffectInputDataC* in, float dt) {
+GLuint effect_apply(EffectC* e, const EffectInputDataC* in) {
   assert(e && in);
 
   assert(in->prev_curr_proj && in->prev_curr_view);
@@ -57,7 +57,7 @@ GLuint effect_apply(EffectC* e, const EffectInputDataC* in, float dt) {
   auto mats = (const glm::mat4(*)[2])(in->model_mats);
   cpp.modelMats = std::span<const glm::mat4[2]>(mats, in->model_mat_count);
 
-  return e->eff.Apply(cpp, dt);
+  return e->eff.Apply(cpp);
 }
 
 void effect_set_acc_reset_interval(EffectC* e, int interval) {

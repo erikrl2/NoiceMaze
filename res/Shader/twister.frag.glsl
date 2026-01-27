@@ -5,9 +5,12 @@
 
 #version 430 core
 
-out vec4 fragColor;
+layout(location = 0) out vec4 fragColor;
+layout(location = 1) out int id;
+
+uniform int ObjectID;
 
 void main() {
-  if(!gl_FrontFacing) discard;
   fragColor = vec4(1.0);
+  id = ObjectID;
 }
