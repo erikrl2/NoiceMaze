@@ -15,7 +15,7 @@
       "generator": "Visual Studio 18 2026",
       "binaryDir": "${sourceDir}/build/vs",
       "cacheVariables": {
-        "VCPKG_TARGET_TRIPLET": "x64-windows-static"
+        "VCPKG_TARGET_TRIPLET": "x64-windows-static-md"
       },
       "condition": {
         "type": "equals",
