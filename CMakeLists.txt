@@ -1,10 +1,6 @@
 cmake_minimum_required(VERSION 3.16 FATAL_ERROR)
 project(NoiceMaze LANGUAGES C CXX)
 
-#if(MSVC)
-  #set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-#endif()
-
 find_package(OpenGL REQUIRED)
 find_package(SDL2 CONFIG REQUIRED)
 find_package(GLEW CONFIG REQUIRED)

@@ -9,6 +9,7 @@
 #include "MathLib.h"
 #include "mesh.h"
 #include "noice/effect_c.h"
+#include "noice/screenshot_c.h"
 #include "window.h"
 
 #include <GL/glew.h>
@@ -47,6 +48,8 @@ static struct {
   int curr_frame_idx; // 0 or 1
   int current_object_id;
 } effect_data = {0};
+
+static ScreenshotC* screenshot_tool = NULL;
 
 static void update_uniforms();
 static GLuint create_shader(GLenum type, char* filename);
@@ -248,7 +251,17 @@ void drawer_free_mesh_vbo(MeshVBO* vbo) {
 }
 
 void drawer_screenshot() {
-  // TODO: use my cpp accum screenshot tool
+  if (screenshot_tool && !effect_data.enabled) return;
+
+  if (!screenshot_is_active(screenshot_tool)) {
+    screenshot_set_method(screenshot_tool, SCREENSHOT_METHOD_ABSDIFFSUM);
+    screenshot_set_target_frames(screenshot_tool, 30);
+    screenshot_set_basename(screenshot_tool, "capture");
+    screenshot_begin(screenshot_tool);
+  } else {
+    screenshot_save_png(screenshot_tool);
+    screenshot_reset(screenshot_tool);
+  }
 }
 
 void drawer_print_glinfo() {
@@ -370,6 +383,8 @@ static void set_viewport(int posx, int posy, int sizex, int sizey) {
 static void handle_keypress(SDL_Keycode key) {
   if (key == SDLK_e) {
     drawer_effect_toggle();
+  } else if (key == SDLK_c) {
+    drawer_screenshot();
   }
 }
 
@@ -416,10 +431,12 @@ static void effect_destroy_framebuffers() {
     if (effect_data.fbo[i]) glDeleteFramebuffers(1, &effect_data.fbo[i]);
     if (effect_data.depth_tex[i]) glDeleteTextures(1, &effect_data.depth_tex[i]);
     if (effect_data.id_tex[i]) glDeleteTextures(1, &effect_data.id_tex[i]);
+    if (effect_data.flow_tex[i]) glDeleteTextures(1, &effect_data.flow_tex[i]);
   }
   memset(&effect_data.fbo, 0, sizeof(effect_data.fbo));
   memset(&effect_data.depth_tex, 0, sizeof(effect_data.depth_tex));
   memset(&effect_data.id_tex, 0, sizeof(effect_data.id_tex));
+  memset(&effect_data.flow_tex, 0, sizeof(effect_data.flow_tex));
 }
 
 static void effect_ensure_model_mat_capacity(size_t required) {
@@ -443,6 +460,9 @@ void drawer_effect_init() {
   effect_create_framebuffers();
   effect_init(effect_data.effect, screen_size[0], screen_size[1]);
 
+  screenshot_tool = screenshot_create();
+  screenshot_init(screenshot_tool, screen_size[0], screen_size[1]);
+
   effect_data.model_mat_count = 0;
   effect_data.model_mat_capacity = 16;
   effect_data.model_mats = malloc(sizeof(float[2][16]) * effect_data.model_mat_capacity);
@@ -456,6 +476,10 @@ void drawer_effect_shutdown() {
   effect_shutdown(effect_data.effect);
   effect_destroy(effect_data.effect);
   effect_data.effect = NULL;
+
+  screenshot_shutdown(screenshot_tool);
+  screenshot_destroy(screenshot_tool);
+  screenshot_tool = NULL;
 
   effect_destroy_framebuffers();
 
@@ -545,6 +569,12 @@ Texture drawer_effect_apply(float time_passed) {
   input.curr_ind = curr_idx;
 
   GLuint result_tex = effect_apply(effect_data.effect, &input, time_passed);
+
+  screenshot_update(screenshot_tool, result_tex);
+
+  if (screenshot_is_active(screenshot_tool)) {
+    result_tex = screenshot_get_result(screenshot_tool);
+  }
 
   return result_tex;
 }
