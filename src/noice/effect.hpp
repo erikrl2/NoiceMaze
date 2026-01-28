@@ -30,6 +30,7 @@ public:
   void OnResize(int width, int height);
 
 private:
+  void Clear();
   void ScatterPass(const EffectInputData& in, float dt);
   void FillPass(const EffectInputData& in);
 

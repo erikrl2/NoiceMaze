@@ -8,13 +8,14 @@
 out vec4 out_fragColor;
 
 uniform sampler2D Image;
-uniform bool EffectEnabled = true;
+uniform bool EffectEnabled;
 
 void main() {
   vec3 c = texelFetch(Image, ivec2(gl_FragCoord.xy), 0).rgb;
 
   if (EffectEnabled) {
     out_fragColor = vec4(c.r, c.r, c.r, 1);
+    //out_fragColor = vec4(clamp(c.xy * 0.5 + 0.5, 0.0, 1.0), 0, 1);
   } else {
     out_fragColor = vec4(c, 1);
   }

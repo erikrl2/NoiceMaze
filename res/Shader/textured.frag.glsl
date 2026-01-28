@@ -27,7 +27,7 @@ vec2 uvFromWorld(vec3 worldDir) {
 }
 
 vec2 getScreenspaceFlowDir(vec3 dirWorld) {
-  float eps = 1.0;
+  float eps = 0.2; // TODO: test different initial eps
   vec2 uv0 = uvFromWorld(worldPos);
   vec2 uv1;
   for (int k = 0; k < 8; k++) {

@@ -8,7 +8,8 @@ namespace util {
   inline int RandomInt() {
     static std::mt19937 engine{std::random_device{}()};
     static std::uniform_int_distribution<int> dist;
-    return dist(engine);
+    int r =  dist(engine);
+    return r;
   }
 } // namespace util
 
@@ -16,7 +17,7 @@ void Effect::Init(int width, int height) {
   scrollShader.CreateCompute("Shader/Noice/scroll_move.comp.glsl");
   fillShader.CreateCompute("Shader/Noice/scroll_fill.comp.glsl");
 
-  // modelSSB.Create(sizeof(glm::mat4[2]) * 8, nullptr, GL_DYNAMIC_DRAW); // or GL_STREAM_DRAW
+  modelSSB.Create(sizeof(glm::mat4[2]) * 13, nullptr, GL_STREAM_DRAW);
 
   this->width = width;
   this->height = height;
@@ -46,20 +47,25 @@ void Effect::Destroy() {
 Texture Effect::Apply(const EffectInputData& in, float dt) {
   std::swap(curr, prev);
 
+  Clear();
   ScatterPass(in, dt);
   FillPass(in);
 
   return !showAcc ? effectImgs[curr].noise : effectImgs[curr].acc;
 }
 
-void Effect::ScatterPass(const EffectInputData& in, float dt) {
+void Effect::Clear() {
   if (accResetInterval > 0) {
     static unsigned frameCount = 0;
     if (++frameCount % accResetInterval == 0) effectImgs[prev].acc.Clear();
   }
+  effectImgs[curr].acc.Clear();
+  effectImgs[curr].noise.Clear();
 
   claimImg.Clear({-1, 0, 0, 0});
+}
 
+void Effect::ScatterPass(const EffectInputData& in, float dt) {
   scrollShader.Use();
 
   effectImgs[curr].noise.Bind(0, GL_WRITE_ONLY);
@@ -88,9 +94,8 @@ void Effect::FillPass(const EffectInputData& in) {
   fillShader.Use();
 
   effectImgs[curr].noise.Bind(0, GL_READ_WRITE);
-  effectImgs[prev].noise.Bind(1, GL_WRITE_ONLY);
   effectImgs[curr].acc.Bind(2, GL_READ_WRITE);
-  effectImgs[prev].acc.Bind(3, GL_READ_WRITE);
+  effectImgs[prev].acc.Bind(3, GL_READ_ONLY);
 
   in.currIdTex.Bind(0);
   in.prevIdTex.Bind(1);

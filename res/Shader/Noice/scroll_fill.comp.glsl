@@ -3,9 +3,8 @@
 layout(local_size_x = 16, local_size_y = 16) in;
 
 layout(rg8, binding = 0) uniform image2D uCurrNoiseTex;
-layout(rg8, binding = 1) uniform writeonly image2D uPrevNoiseTex;
 layout(rg32f, binding = 2) uniform image2D uCurrAccTex;
-layout(rg32f, binding = 3) uniform image2D uPrevAccTex;
+layout(rg32f, binding = 3) uniform readonly image2D uPrevAccTex;
 
 layout(binding = 0) uniform isampler2D uCurrIdTex;
 layout(binding = 1) uniform isampler2D uPrevIdTex;
@@ -99,7 +98,4 @@ void main() {
 
     imageStore(uCurrAccTex, px, vec4(acc, 0, 0));
   }
-
-  imageStore(uPrevNoiseTex, px, vec4(0));
-  imageStore(uPrevAccTex, px, vec4(0));
 }
