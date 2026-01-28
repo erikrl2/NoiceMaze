@@ -11,9 +11,10 @@
 #include "noice/effect_c.h"
 #include "window.h"
 
-#include <FreeImage.h>
 #include <GL/glew.h>
 #include <SDL_keycode.h>
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
 #include <stdio.h>
 
 static float mat_projection[16], mat_view[16], mat_model[16];
@@ -51,7 +52,7 @@ static void update_uniforms();
 static GLuint create_shader(GLenum type, char* filename);
 static GLuint create_program(GLuint vertex_shader, GLuint fragment_shader);
 static int uniform_exists(char* name, GLint* location);
-static GLuint create_texture(GLsizei width, GLsizei height, GLenum format, GLfloat* data);
+static GLuint create_texture(GLsizei width, GLsizei height, GLenum format, const unsigned char* data);
 static void set_viewport(int posx, int posy, int sizex, int sizey);
 static void handle_keypress(SDL_Keycode key);
 static void effect_create_framebuffers();
@@ -60,8 +61,6 @@ static void effect_ensure_model_mat_capacity(size_t required);
 
 void drawer_init() {
   window_add_keypress_handler(handle_keypress);
-
-  FreeImage_Initialise(0);
 
   glewInit();
 
@@ -82,7 +81,7 @@ void drawer_init() {
 }
 
 void drawer_quit() {
-  FreeImage_DeInitialise();
+  /* no global teardown required for stb_image */
 }
 
 void drawer_view_set(float matrix[16]) {
@@ -109,28 +108,16 @@ void drawer_use_program(Program program) {
 }
 
 Texture drawer_load_texture(char* filename) {
-  FIBITMAP* bmp = FreeImage_Load(FIF_JPEG, file_resource(filename, RESOURCE_TEXTURE), 0);
+  int width, height, channels;
+  unsigned char* img = stbi_load(file_resource(filename, RESOURCE_TEXTURE), &width, &height, &channels, 3);
+  if (!img) {
+    printf("Failed to load image: %s\n", filename);
+    return 0;
+  }
 
-  int image_size[2];
-  image_size[0] = FreeImage_GetWidth(bmp);
-  image_size[1] = FreeImage_GetHeight(bmp);
+  GLuint texture = create_texture(width, height, GL_RGB, img);
 
-  GLfloat* image_data = malloc(sizeof(GLfloat) * image_size[0] * image_size[1] * 3);
-  int x, y;
-  for (x = 0; x < image_size[0]; x++)
-    for (y = 0; y < image_size[1]; y++) {
-      RGBQUAD color;
-      FreeImage_GetPixelColor(bmp, x, y, &color);
-      GLfloat* pixel = &image_data[(x + y * image_size[0]) * 3];
-      pixel[0] = color.rgbRed / 255.0;
-      pixel[1] = color.rgbGreen / 255.0;
-      pixel[2] = color.rgbBlue / 255.0;
-    }
-
-  GLuint texture = create_texture(image_size[0], image_size[1], GL_RGB, image_data);
-
-  free(image_data);
-  FreeImage_Unload(bmp);
+  stbi_image_free(img);
 
   return texture;
 }
@@ -321,11 +308,19 @@ static int uniform_exists(char* name, GLint* location) {
   return *location == -1 ? 0 : 1;
 }
 
-static GLuint create_texture(GLsizei width, GLsizei height, GLenum format, GLfloat* data) {
+static GLuint create_texture(GLsizei width, GLsizei height, GLenum format, const unsigned char* data) {
+  GLenum internal = GL_RGB8;
+  if (format == GL_RGBA)
+    internal = GL_RGBA8;
+  else if (format == GL_RGB)
+    internal = GL_RGB8;
+  else
+    internal = format;
+
   GLuint texture;
   glGenTextures(1, &texture);
   glBindTexture(GL_TEXTURE_2D, texture);
-  glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_FLOAT, data);
+  glTexImage2D(GL_TEXTURE_2D, 0, internal, width, height, 0, format, GL_UNSIGNED_BYTE, data);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);

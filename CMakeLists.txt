@@ -1,16 +1,15 @@
 cmake_minimum_required(VERSION 3.16 FATAL_ERROR)
 project(NoiceMaze LANGUAGES C CXX)
 
-if(MSVC)
-  set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-endif()
-
+#if(MSVC)
+  #set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+#endif()
 
 find_package(OpenGL REQUIRED)
 find_package(SDL2 CONFIG REQUIRED)
 find_package(GLEW CONFIG REQUIRED)
-find_package(FreeImage CONFIG REQUIRED)
 find_package(GLM CONFIG REQUIRED)
+find_package(Stb REQUIRED)
 
 file(GLOB GLMaze_SRC CONFIGURE_DEPENDS
   "${PROJECT_SOURCE_DIR}/src/*.h"
@@ -38,7 +37,6 @@ target_link_libraries(NoiceMaze_deps INTERFACE
   OpenGL::GL
   SDL2::SDL2
   GLEW::GLEW
-  freeimage::FreeImage
   Noice
 )
 
@@ -50,6 +48,7 @@ endif()
 
 add_executable(NoiceMaze ${GLMaze_SRC})
 target_link_libraries(NoiceMaze PRIVATE NoiceMaze_deps)
+target_include_directories(NoiceMaze PRIVATE ${Stb_INCLUDE_DIR})
 
 add_custom_command(TARGET NoiceMaze POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy_directory
