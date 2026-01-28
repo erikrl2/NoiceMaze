@@ -254,8 +254,7 @@ void drawer_screenshot() {
   if (screenshot_tool && !effect_data.enabled) return;
 
   if (!screenshot_is_active(screenshot_tool)) {
-    screenshot_set_method(screenshot_tool, SCREENSHOT_METHOD_ABSDIFFSUM);
-    screenshot_set_target_frames(screenshot_tool, 30);
+    screenshot_set_method(screenshot_tool, SCREENSHOT_METHOD_AVERAGE);
     screenshot_set_basename(screenshot_tool, "capture");
     screenshot_begin(screenshot_tool);
   } else {
@@ -385,6 +384,21 @@ static void handle_keypress(SDL_Keycode key) {
     drawer_effect_toggle();
   } else if (key == SDLK_c) {
     drawer_screenshot();
+  } else if (key == SDLK_a) {
+    static int acc_reset_interval = 10;
+    acc_reset_interval = (acc_reset_interval != 0) ? 0 : 10;
+    effect_set_acc_reset_interval(effect_data.effect, acc_reset_interval);
+    printf("Effect accumulation reset interval: %d\n", acc_reset_interval);
+  }
+  static int screenshot_capture_frames = 30;
+  if (key == SDLK_DOWN) {
+    screenshot_capture_frames = max(0, screenshot_capture_frames - 1);
+    screenshot_set_target_frames(screenshot_tool, screenshot_capture_frames);
+    printf("Screenshot capture frames: %d\n", screenshot_capture_frames);
+  } else if (key == SDLK_UP) {
+    screenshot_capture_frames += 1;
+    screenshot_set_target_frames(screenshot_tool, screenshot_capture_frames);
+    printf("Screenshot capture frames: %d\n", screenshot_capture_frames);
   }
 }
 

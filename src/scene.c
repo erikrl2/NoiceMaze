@@ -122,7 +122,7 @@ static void draw_models() {
   drawer_view_set(view);
   drawer_effect_set_view_matrix(view);
 
-  draw_floor(); // 0
+  draw_floor(); // 0 
   draw_ceiling(); // 1
   draw_walls(); // 2
   draw_twisters(); // 3-12

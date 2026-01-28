@@ -104,7 +104,8 @@ void main() {
   //int asdf = texelFetch(uPrevIdTex, targetFullPx, 0).r;
   //if (asdf != prevId) {}
 
-  uint myKey = uint(prevPx.x) + (uint(prevPx.y) << 16);
+  //uint myKey = uint(prevPx.x) + (uint(prevPx.y) << 16);
+  uint myKey = floatBitsToUint(prevDepth);
   uint oldKey = imageAtomicMin(uClaimTex, targetPx, myKey);
   if (myKey <= oldKey) {
     imageStore(uCurrNoiseTex, targetPx, vec4(prevNoise.r, 1, 0, 0));

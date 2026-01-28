@@ -27,7 +27,7 @@ vec2 uvFromWorld(vec3 worldDir) {
 }
 
 vec2 getScreenspaceFlowDir(vec3 dirWorld) {
-  float eps = 0.2; // TODO: test different initial eps
+  float eps = 0.01;
   vec2 uv0 = uvFromWorld(worldPos);
   vec2 uv1;
   for (int k = 0; k < 8; k++) {
@@ -43,6 +43,8 @@ void main() {
   if (EffectEnabled) {
     out_id = ObjectID;
     out_flow = vec2(0);
+    if (ObjectID == 0) out_flow = getScreenspaceFlowDir(vec3(0, 0, -1)); // FLOOR
+    if (ObjectID == 1) out_flow = getScreenspaceFlowDir(vec3(0, 0, -1)); // CEILING
     if (ObjectID == 2) out_flow = getScreenspaceFlowDir(vec3(0, 1, 0)); // WALL
   } else {
     vec3 tex_color = texture(Diffuse, texcoord).rgb;
