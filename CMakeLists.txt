@@ -3,8 +3,8 @@ project(NoiceMaze LANGUAGES C CXX)
 
 find_package(OpenGL REQUIRED)
 find_package(SDL2 CONFIG REQUIRED)
-find_package(GLEW CONFIG REQUIRED)
-find_package(GLM CONFIG REQUIRED)
+find_package(glew CONFIG REQUIRED)
+find_package(glm CONFIG REQUIRED)
 find_package(Stb REQUIRED)
 
 file(GLOB GLMaze_SRC CONFIGURE_DEPENDS

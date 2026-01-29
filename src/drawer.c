@@ -8,8 +8,8 @@
 #include "file.h"
 #include "MathLib.h"
 #include "mesh.h"
-#include "noice/effect_c.h"
-#include "noice/screenshot_c.h"
+#include "Noice/effect_c.h"
+#include "Noice/screenshot_c.h"
 #include "window.h"
 
 #include <GL/glew.h>
@@ -392,7 +392,7 @@ static void handle_keypress(SDL_Keycode key) {
   }
   static int screenshot_capture_frames = 30;
   if (key == SDLK_DOWN) {
-    screenshot_capture_frames = max(0, screenshot_capture_frames - 1);
+    screenshot_capture_frames = fmax(0, screenshot_capture_frames - 1);
     screenshot_set_target_frames(screenshot_tool, screenshot_capture_frames);
     printf("Screenshot capture frames: %d\n", screenshot_capture_frames);
   } else if (key == SDLK_UP) {

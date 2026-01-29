@@ -11,10 +11,12 @@
 
 #include <stdlib.h>
 #include <time.h>
-#ifdef _WIN32
+#if defined _WIN32
 #include <direct.h>
 #include <string.h>
 #include <windows.h>
+#elif defined __linux__
+#include "unistd.h"
 #endif
 
 #include <SDL.h> //for SDL_GetTicks
@@ -81,6 +83,19 @@ int main(int argc, char* argv[]) {
     char ext[_MAX_EXT];
     _splitpath_s(dest, drive, _MAX_DRIVE, dir, _MAX_DIR, fname, _MAX_FNAME, ext, _MAX_EXT);
     _chdir(dir);
+  }
+#elif defined __linux__
+  {
+    char path[4096];
+    ssize_t n = readlink("/proc/self/exe", path, sizeof(path) - 1);
+    if (n > 0) {
+      path[n] = 0;
+      char* s = strrchr(path, '/');
+      if (s) {
+        *s = 0;
+        chdir(path);
+      }
+    }
   }
 #endif
 

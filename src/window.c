@@ -32,10 +32,9 @@ void window_init() {
 #if defined SCREENSAVER
   flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 #else
-  if (fullscreen) flags |= SDL_WINDOW_FULLSCREEN;
+  if (fullscreen) flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 #endif
 
-  /* Request OpenGL 4.3 Core profile */
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
@@ -44,16 +43,16 @@ void window_init() {
 #endif
 
   window = SDL_CreateWindow(
-      "GLMaze", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, screen_size[0], screen_size[1], flags
+      "Noice Maze", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, screen_size[0], screen_size[1], flags
   );
   context = SDL_GL_CreateContext(window);
 
   char vsync = config_get_value_integer("vsync", 1);
   SDL_GL_SetSwapInterval(vsync ? 1 : 0);
 
-#if defined SCREENSAVER
   SDL_GetWindowSize(window, &screen_size[0], &screen_size[1]);
 
+#if defined SCREENSAVER
   SDL_ShowCursor(SDL_DISABLE);
 #endif
 }

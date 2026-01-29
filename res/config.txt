@@ -1,5 +1,4 @@
-# This is the GLMaze config file
-
 res_width=1280
 res_height=800
 fullscreen=0
+vsync=1
