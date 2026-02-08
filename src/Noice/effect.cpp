@@ -5,10 +5,10 @@
 #include <random>
 
 namespace util {
-  inline int RandomInt() {
+  inline unsigned int RandomInt() {
     static std::mt19937 engine{std::random_device{}()};
-    static std::uniform_int_distribution<int> dist;
-    int r =  dist(engine);
+    static std::uniform_int_distribution<unsigned int> dist(0u, 0xFFFFFFFFu);
+    unsigned int r = dist(engine);
     return r;
   }
 } // namespace util
@@ -100,7 +100,8 @@ void Effect::FillPass(const EffectInputData& in) {
   in.currIdTex.Bind(0);
   in.prevIdTex.Bind(1);
 
-  fillShader.SetUint("uSeed", util::RandomInt());
+  unsigned int seed = util::RandomInt();
+  fillShader.SetUint("uSeed", seed);
 
   fillShader.DispatchCompute(width, height, 16);
 }
