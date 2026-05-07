@@ -9,6 +9,10 @@
 
 #include <SDL.h>
 
+#if defined _WIN32
+#include <windows.h>
+#endif
+
 static SDL_Window* window;
 static SDL_GLContext context;
 
@@ -40,6 +44,10 @@ void window_init() {
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 #if defined(_DEBUG)
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG);
+#endif
+
+#if defined _WIN32
+  SetProcessDPIAware();
 #endif
 
   window = SDL_CreateWindow(
